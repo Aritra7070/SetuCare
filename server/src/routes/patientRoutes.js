@@ -10,6 +10,7 @@ const {
   getPatientById,
   updatePatient,
 } = require('../controllers/patientController');
+const { getPatientEncounters } = require('../controllers/encounterController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 
@@ -23,6 +24,9 @@ router.get(
 
 // Cross-Facility Patient Lookup by PHID (Any authenticated user, bypasses facilityScope)
 router.get('/lookup/:phid', protect, lookupPatientByPHID);
+
+// Patient encounters list
+router.get('/:phid/encounters', protect, getPatientEncounters);
 
 // Explicit scan event audit logging
 router.post('/lookup/:phid/scan-log', protect, recordScanLog);

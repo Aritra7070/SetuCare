@@ -12,6 +12,7 @@ const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const facilityRoutes = require('./routes/facilityRoutes');
 const patientRoutes = require('./routes/patientRoutes');
+const encounterRoutes = require('./routes/encounterRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -54,7 +55,7 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     system: 'SetuCare API Server',
-    phase: 'Phase 1 - Scaffold, Data Schema, Auth',
+    phase: 'Phase 1 & 2 - Foundation & Continuity Spine',
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.floor(process.uptime()),
   });
@@ -64,6 +65,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/facilities', facilityRoutes);
 app.use('/api/patients', patientRoutes);
+app.use('/api/encounters', encounterRoutes);
 
 // 404 Handler
 app.use('*', (req, res) => {

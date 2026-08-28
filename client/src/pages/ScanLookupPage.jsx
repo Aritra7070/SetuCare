@@ -3,6 +3,7 @@ import api from '../api/axios';
 import { useAuthStore } from '../stores/authStore';
 import { QRScanner } from '../components/QRScanner';
 import { PatientCardModal } from '../components/PatientCardModal';
+import { EncounterCreateModal } from '../components/EncounterCreateModal';
 import {
   QrCode,
   Search,
@@ -20,6 +21,14 @@ import {
   Globe,
   RotateCcw,
   UserPlus,
+  Activity,
+  Heart,
+  Thermometer,
+  Wind,
+  Weight,
+  Layers,
+  Clock,
+  Zap,
 } from 'lucide-react';
 
 export const ScanLookupPage = ({ onNavigateToRegister }) => {
@@ -33,12 +42,13 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
   // Result state
   const [lookupResult, setLookupResult] = useState(null);
   const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [encounterModalOpen, setEncounterModalOpen] = useState(false);
 
   // Recent sample patients for 1-click test chips
   const [recentPatients, setRecentPatients] = useState([]);
 
   useEffect(() => {
-    // Fetch a couple recent patients to provide 1-click test chips
+    // Fetch recent patients to provide 1-click test chips
     api.get('/patients')
       .then((res) => {
         if (res.data.success && res.data.patients.length > 0) {
@@ -96,6 +106,14 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
     setInputPhid('');
   };
 
+  const handleEncounterCreated = (newEncounter) => {
+    setEncounterModalOpen(false);
+    // Refresh the patient's lookup record and timeline
+    if (lookupResult?.patient?.phid) {
+      performLookup(lookupResult.patient.phid, 'direct_lookup');
+    }
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
     return new Date(dateStr).toLocaleDateString('en-IN', {
@@ -103,6 +121,29 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
       month: 'short',
       year: 'numeric',
     });
+  };
+
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getEncounterTypeBadge = (type) => {
+    switch (type) {
+      case 'referral_consult':
+        return { label: 'Referral Consult', bg: 'rgba(244, 63, 94, 0.15)', color: '#fb7185', border: 'rgba(244, 63, 94, 0.3)' };
+      case 'follow_up':
+        return { label: 'Follow-Up Check', bg: 'rgba(59, 130, 246, 0.15)', color: '#93c5fd', border: 'rgba(59, 130, 246, 0.3)' };
+      case 'walk_in':
+      default:
+        return { label: 'Routine Walk-In', bg: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: 'rgba(16, 185, 129, 0.3)' };
+    }
   };
 
   return (
@@ -157,7 +198,7 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
       {/* Main View: Result Card OR Scanner View */}
       {lookupResult ? (
         /* PATIENT RECORD LOOKUP RESULT VIEW */
-        <div style={{ maxWidth: '840px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div style={{ maxWidth: '880px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Top Status & Cross-Facility Alert */}
           <div
             className="card"
@@ -200,15 +241,24 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
                   </div>
                   <div style={{ fontSize: '0.825rem', color: '#cbd5e1' }}>
                     {lookupResult.scanContext?.isCrossFacility
-                      ? `Patient registered at ${lookupResult.patient.registeredAtFacility?.name || 'Sub-Centre'}, currently accessed at ${user?.facility?.name || 'Current Facility'}.`
+                      ? `Patient registered at ${lookupResult.patient.registeredAtFacility?.name || 'Sub-Centre'}, currently presenting at ${user?.facility?.name || 'Current Facility'}.`
                       : `Patient is enrolled locally at ${lookupResult.patient.registeredAtFacility?.name}.`}
                   </div>
                 </div>
               </div>
 
-              <button onClick={resetSearch} className="btn btn-outline btn-sm">
-                <RotateCcw size={13} /> Scan Another
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={() => setEncounterModalOpen(true)}
+                  className="btn btn-primary btn-sm"
+                  style={{ background: 'linear-gradient(135deg, #0d9488 0%, #06b6d4 100%)' }}
+                >
+                  <Stethoscope size={14} /> + Record Encounter
+                </button>
+                <button onClick={resetSearch} className="btn btn-outline btn-sm">
+                  <RotateCcw size={13} /> Scan Another
+                </button>
+              </div>
             </div>
           </div>
 
@@ -353,36 +403,212 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
             </div>
           </div>
 
-          {/* Stepped-Care Encounters Section (Staged for Step 5) */}
+          {/* Stepped-Care Encounters Section */}
           <div className="card">
             <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <h3 className="card-title">
                   <Stethoscope size={19} color="#14b8a6" />
-                  Clinical Encounters & Referral Timeline
+                  Longitudinal Clinical Encounters ({lookupResult.encounters?.length || 0})
                 </h3>
                 <p className="card-desc">
-                  Longitudinal history recorded across Maharashtra health tiers.
+                  Chronological record of visits stamped across Maharashtra stepped-care network.
                 </p>
               </div>
 
-              <span className="tag-badge tag-ref" style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem' }}>
-                Step 5 Staged
-              </span>
+              <button
+                type="button"
+                onClick={() => setEncounterModalOpen(true)}
+                className="btn btn-primary btn-sm"
+              >
+                <Stethoscope size={14} /> + Record Visit
+              </button>
             </div>
 
             {lookupResult.encounters && lookupResult.encounters.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {lookupResult.encounters.map((enc) => (
-                  <div key={enc._id} className="schema-field-row">
-                    <div>
-                      <strong>{enc.encounterType}</strong> &bull; {enc.facility?.name}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {lookupResult.encounters.map((enc) => {
+                  const badge = getEncounterTypeBadge(enc.encounterType);
+
+                  return (
+                    <div
+                      key={enc._id}
+                      style={{
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '1.25rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.85rem',
+                      }}
+                    >
+                      {/* Visit Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <span
+                            style={{
+                              padding: '0.2rem 0.6rem',
+                              borderRadius: 'var(--radius-full)',
+                              fontSize: '0.75rem',
+                              fontWeight: '700',
+                              background: badge.bg,
+                              color: badge.color,
+                              border: `1px solid ${badge.border}`,
+                            }}
+                          >
+                            {badge.label}
+                          </span>
+                          <span style={{ fontSize: '0.825rem', fontWeight: '700', color: '#f8fafc' }}>
+                            {enc.facility?.name || 'Local Facility'}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: '#22d3ee' }}>
+                            [{enc.facility?.shortCode || 'FAC'}]
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          <Clock size={13} />
+                          {formatDateTime(enc.createdAt)}
+                        </div>
+                      </div>
+
+                      {/* Attending Worker Info */}
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Attending Clinician:{' '}
+                        <strong style={{ color: '#e2e8f0' }}>{enc.worker?.name || 'Clinician'}</strong>{' '}
+                        <span style={{ textTransform: 'capitalize', color: 'var(--text-muted)' }}>
+                          ({enc.worker?.role?.replace('_', ' ') || 'Staff'})
+                        </span>
+                      </div>
+
+                      {/* Vitals Pills */}
+                      {enc.vitals && Object.values(enc.vitals).some((v) => v !== undefined && v !== '') && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {enc.vitals.bp && (
+                            <span
+                              style={{
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                border: '1px solid rgba(59, 130, 246, 0.25)',
+                                padding: '0.25rem 0.55rem',
+                                borderRadius: '6px',
+                                fontSize: '0.78rem',
+                                color: '#93c5fd',
+                              }}
+                            >
+                              BP: <strong>{enc.vitals.bp}</strong> mmHg
+                            </span>
+                          )}
+                          {enc.vitals.tempC !== undefined && enc.vitals.tempC !== null && (
+                            <span
+                              style={{
+                                background: enc.vitals.tempC >= 38.0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                border: enc.vitals.tempC >= 38.0 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-subtle)',
+                                padding: '0.25rem 0.55rem',
+                                borderRadius: '6px',
+                                fontSize: '0.78rem',
+                                color: enc.vitals.tempC >= 38.0 ? '#fca5a5' : '#e2e8f0',
+                              }}
+                            >
+                              Temp: <strong>{enc.vitals.tempC}°C</strong>
+                            </span>
+                          )}
+                          {enc.vitals.pulse && (
+                            <span
+                              style={{
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                border: '1px solid var(--border-subtle)',
+                                padding: '0.25rem 0.55rem',
+                                borderRadius: '6px',
+                                fontSize: '0.78rem',
+                                color: '#e2e8f0',
+                              }}
+                            >
+                              Pulse: <strong>{enc.vitals.pulse}</strong> bpm
+                            </span>
+                          )}
+                          {enc.vitals.spo2 && (
+                            <span
+                              style={{
+                                background: enc.vitals.spo2 < 92 ? 'rgba(239, 68, 68, 0.18)' : 'rgba(16, 185, 129, 0.1)',
+                                border: enc.vitals.spo2 < 92 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.25)',
+                                padding: '0.25rem 0.55rem',
+                                borderRadius: '6px',
+                                fontSize: '0.78rem',
+                                color: enc.vitals.spo2 < 92 ? '#fca5a5' : '#6ee7b7',
+                              }}
+                            >
+                              SpO2: <strong>{enc.vitals.spo2}%</strong> {enc.vitals.spo2 < 92 && '⚠️ Hypoxia'}
+                            </span>
+                          )}
+                          {enc.vitals.weightKg && (
+                            <span
+                              style={{
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                border: '1px solid var(--border-subtle)',
+                                padding: '0.25rem 0.55rem',
+                                borderRadius: '6px',
+                                fontSize: '0.78rem',
+                                color: '#e2e8f0',
+                              }}
+                            >
+                              Weight: <strong>{enc.vitals.weightKg}</strong> kg
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Symptoms Tags */}
+                      {enc.symptoms && enc.symptoms.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                          {enc.symptoms.map((s, idx) => (
+                            <span
+                              key={idx}
+                              style={{
+                                background: 'rgba(13, 148, 136, 0.12)',
+                                border: '1px solid rgba(20, 184, 166, 0.25)',
+                                padding: '0.2rem 0.5rem',
+                                borderRadius: '4px',
+                                fontSize: '0.75rem',
+                                color: '#5eead4',
+                              }}
+                            >
+                              &bull; {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Clinical Notes */}
+                      {enc.notes && (
+                        <div
+                          style={{
+                            background: 'rgba(11, 17, 32, 0.8)',
+                            padding: '0.65rem 0.85rem',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.825rem',
+                            color: '#cbd5e1',
+                            borderLeft: '3px solid #14b8a6',
+                          }}
+                        >
+                          {enc.notes}
+                        </div>
+                      )}
+
+                      {/* Step 7 Triage Staged Hook */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.4rem', borderTop: '1px dashed rgba(255, 255, 255, 0.06)' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                          onClick={() => alert('Step 7 Digital Triage Rule Engine is coming up in Phase 2! This hook will compute risk levels and routing recommendations.')}
+                        >
+                          <Zap size={12} /> Run Digital Triage (Step 7)
+                        </button>
+                      </div>
                     </div>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      {formatDate(enc.createdAt)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div
@@ -396,23 +622,31 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
               >
                 <Stethoscope size={36} color="#64748b" style={{ margin: '0 auto 0.75rem auto', opacity: 0.6 }} />
                 <div style={{ fontWeight: '700', color: '#f8fafc' }}>
-                  No Clinical Encounters Recorded Yet
+                  No Prior Encounters Recorded for this Patient
                 </div>
                 <div style={{ fontSize: '0.825rem', color: 'var(--text-muted)', maxWidth: '420px', margin: '0.35rem auto 1.25rem auto' }}>
-                  This patient is registered. In <strong>Step 5 (Clinical Encounter Creation)</strong>, you will be able to record community triage, vitals, and initiate stepped referrals right from here.
+                  Start logging primary health assessments, triage vitals, and checklist symptoms to initiate the patient's continuity record.
                 </div>
 
                 <button
                   type="button"
                   className="btn btn-primary"
-                  style={{ opacity: 0.8 }}
-                  onClick={() => alert('Step 5 Encounter Creation form is the next roadmap step! Patient lookup continuity is fully verified.')}
+                  onClick={() => setEncounterModalOpen(true)}
                 >
-                  <Stethoscope size={15} /> + Start Clinical Encounter (Step 5)
+                  <Stethoscope size={15} /> + Record First Clinical Encounter
                 </button>
               </div>
             )}
           </div>
+
+          {/* Encounter Create Modal */}
+          {encounterModalOpen && (
+            <EncounterCreateModal
+              patient={lookupResult.patient}
+              onClose={() => setEncounterModalOpen(false)}
+              onSuccess={handleEncounterCreated}
+            />
+          )}
 
           {/* Printable Card Modal */}
           {cardModalOpen && (
