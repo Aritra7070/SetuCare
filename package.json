@@ -1,0 +1,27 @@
+{
+  "name": "setucare",
+  "version": "1.0.0",
+  "description": "SetuCare - Stepped-Care Clinical Navigation & Referral System",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "seed:facilities": "npm --prefix server run seed:facilities",
+    "start": "npm --prefix server start",
+    "build": "npm --prefix client run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "setucare",
+    "healthcare",
+    "referral",
+    "clinical-navigation",
+    "stepped-care"
+  ],
+  "author": "",
+  "license": "ISC"
+}
