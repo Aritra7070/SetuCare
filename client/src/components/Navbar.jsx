@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   UserPlus,
   Users,
+  QrCode,
 } from 'lucide-react';
 
 export const Navbar = ({ currentView, setCurrentView }) => {
@@ -45,7 +46,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
     user && ['frontline_worker', 'medical_officer', 'admin'].includes(user.role);
 
   return (
-    <header className="navbar">
+    <header className="navbar no-print">
       <div className="nav-content">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.75rem' }}>
           <div
@@ -73,6 +74,15 @@ export const Navbar = ({ currentView, setCurrentView }) => {
               >
                 <LayoutDashboard size={14} />
                 Overview
+              </button>
+
+              <button
+                onClick={() => setCurrentView('scan-lookup')}
+                className={`btn btn-sm ${currentView === 'scan-lookup' ? 'btn-primary' : 'btn-outline'}`}
+                style={{ borderRadius: 'var(--radius-full)', padding: '0.35rem 0.85rem' }}
+              >
+                <QrCode size={14} />
+                Scan / Lookup
               </button>
 
               {canRegisterPatients && (

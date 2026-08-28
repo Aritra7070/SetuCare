@@ -17,12 +17,14 @@ import {
   UserPlus,
   Users,
   QrCode,
+  Scan,
 } from 'lucide-react';
 
 export const DashboardPage = ({
   onNavigateToFacilities,
   onNavigateToRegister,
   onNavigateToPatients,
+  onNavigateToScan,
 }) => {
   const { user } = useAuthStore();
 
@@ -82,7 +84,7 @@ export const DashboardPage = ({
             Welcome back, {user.name}
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-            SetuCare Phase 1 Foundation Active &bull; Maharashtra Stepped-Care Network
+            SetuCare Phase 1 & 2 Active &bull; Maharashtra Stepped-Care Network
           </p>
         </div>
 
@@ -98,13 +100,48 @@ export const DashboardPage = ({
         </div>
       </div>
 
-      {/* Step 3 Clinical Navigation Cards */}
-      <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
+      {/* Continuity Spine Quick Actions (Step 4 & Step 3) */}
+      <div className="grid-3" style={{ marginBottom: '1.5rem' }}>
+        {/* Card 1: Scan & Lookup */}
+        <div
+          className="card"
+          style={{
+            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.18) 0%, rgba(59, 130, 246, 0.12) 100%)',
+            border: '1px solid rgba(6, 182, 212, 0.4)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+              <Scan size={20} color="#22d3ee" />
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#ffffff' }}>
+                Scan & Lookup PHID
+              </h3>
+            </div>
+            <p style={{ fontSize: '0.825rem', color: '#cbd5e1' }}>
+              Camera QR scanner, file upload, or manual PHID entry. Bypasses facility boundaries for universal continuity.
+            </p>
+          </div>
+
+          <div style={{ marginTop: '1rem' }}>
+            <button
+              onClick={onNavigateToScan}
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '0.6rem', fontSize: '0.875rem' }}
+            >
+              <QrCode size={14} /> Open QR Scanner / Lookup
+            </button>
+          </div>
+        </div>
+
+        {/* Card 2: Register Patient */}
         {canRegister && (
           <div
             className="card"
             style={{
-              background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.18) 0%, rgba(6, 182, 212, 0.12) 100%)',
+              background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.18) 0%, rgba(16, 185, 129, 0.12) 100%)',
               border: '1px solid rgba(20, 184, 166, 0.4)',
               display: 'flex',
               flexDirection: 'column',
@@ -114,12 +151,12 @@ export const DashboardPage = ({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
                 <UserPlus size={20} color="#14b8a6" />
-                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#ffffff' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#ffffff' }}>
                   Register New Patient
                 </h3>
               </div>
-              <p style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
-                Register community members, calculate minor age/guardians, check duplicates, and issue an offline-scannable QR health card.
+              <p style={{ fontSize: '0.825rem', color: '#cbd5e1' }}>
+                Capture demographics, run duplicate checks, minor guardian detection, and issue offline QR card.
               </p>
             </div>
 
@@ -127,19 +164,20 @@ export const DashboardPage = ({
               <button
                 onClick={onNavigateToRegister}
                 className="btn btn-primary"
-                style={{ width: '100%', padding: '0.6rem' }}
+                style={{ width: '100%', padding: '0.6rem', fontSize: '0.875rem', background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)' }}
               >
-                <UserPlus size={15} /> Open Patient Registration Form
+                <UserPlus size={14} /> Register Patient (PHID)
               </button>
             </div>
           </div>
         )}
 
+        {/* Card 3: Patient Directory */}
         <div
           className="card"
           style={{
-            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(59, 130, 246, 0.1) 100%)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
@@ -147,13 +185,13 @@ export const DashboardPage = ({
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-              <Users size={20} color="#60a5fa" />
-              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#ffffff' }}>
-                Registered Patients Directory
+              <Users size={20} color="#c4b5fd" />
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#ffffff' }}>
+                Patients Directory
               </h3>
             </div>
-            <p style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
-              Search registered patients by Name, PHID, or Mobile, view printable QR health cards, and edit demographics.
+            <p style={{ fontSize: '0.825rem', color: '#cbd5e1' }}>
+              Browse enrolled patients, print digital health cards, and edit demographic records.
             </p>
           </div>
 
@@ -161,9 +199,9 @@ export const DashboardPage = ({
             <button
               onClick={onNavigateToPatients}
               className="btn btn-outline"
-              style={{ width: '100%', padding: '0.6rem', borderColor: 'rgba(59, 130, 246, 0.4)', color: '#93c5fd' }}
+              style={{ width: '100%', padding: '0.6rem', fontSize: '0.875rem', borderColor: 'rgba(139, 92, 246, 0.4)', color: '#c4b5fd' }}
             >
-              <Users size={15} /> View Master Patient Directory
+              <Users size={14} /> View Directory
             </button>
           </div>
         </div>

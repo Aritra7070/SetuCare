@@ -3,6 +3,8 @@ const router = express.Router();
 const {
   checkDuplicate,
   registerPatient,
+  lookupPatientByPHID,
+  recordScanLog,
   getPatientCard,
   getPatients,
   getPatientById,
@@ -18,6 +20,12 @@ router.get(
   roleGuard('frontline_worker', 'medical_officer', 'admin'),
   checkDuplicate
 );
+
+// Cross-Facility Patient Lookup by PHID (Any authenticated user, bypasses facilityScope)
+router.get('/lookup/:phid', protect, lookupPatientByPHID);
+
+// Explicit scan event audit logging
+router.post('/lookup/:phid/scan-log', protect, recordScanLog);
 
 // Get printable card with QR code
 router.get(

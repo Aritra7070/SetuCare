@@ -1,5 +1,7 @@
 const Patient = require('../models/Patient');
 const Facility = require('../models/Facility');
+const Encounter = require('../models/Encounter');
+const ScanLog = require('../models/ScanLog');
 const { generateUniquePHID } = require('../utils/phidGenerator');
 const { generateQRCodeDataUrl } = require('../utils/qrGenerator');
 
@@ -211,6 +213,141 @@ const registerPatient = async (req, res) => {
 };
 
 /**
+ * @desc    Cross-Facility Patient Lookup by PHID + Encounters History
+ * @route   GET /api/patients/lookup/:phid
+ * @access  Private (Any authenticated clinical worker - Intentionally bypasses facilityScope)
+ */
+const lookupPatientByPHID = async (req, res) => {
+  try {
+    const rawPhid = req.params.phid ? req.params.phid.trim() : '';
+
+    if (!rawPhid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid Patient Health ID (PHID)',
+      });
+    }
+
+    // Case-insensitive exact match
+    const patient = await Patient.findOne({
+      phid: new RegExp('^' + rawPhid + '$', 'i'),
+    }).populate(
+      'registeredAtFacility',
+      'name tier district state shortCode contactPhone location'
+    );
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: `No patient record found for PHID '${rawPhid}'`,
+        searchedPhid: rawPhid,
+      });
+    }
+
+    // Fetch existing encounters (empty for now until Step 5, but structurally ready)
+    const encounters = await Encounter.find({ patient: patient._id })
+      .populate('facility', 'name tier district shortCode')
+      .populate('worker', 'name role')
+      .sort({ createdAt: -1 });
+
+    const qrCodeDataUrl = await generateQRCodeDataUrl(patient.phid);
+    const age = calculateAge(patient.dob);
+
+    // Fire-and-forget scan event audit log
+    const scanSource = req.query.source || 'direct_lookup';
+    const scanningFacilityId =
+      req.user.facility?._id || req.user.facility || patient.registeredAtFacility?._id;
+
+    if (scanningFacilityId) {
+      ScanLog.create({
+        patient: patient._id,
+        phid: patient.phid,
+        worker: req.user._id,
+        facility: scanningFacilityId,
+        scanSource: ['camera_qr', 'file_upload', 'manual_entry', 'direct_lookup'].includes(scanSource)
+          ? scanSource
+          : 'direct_lookup',
+        scannedAt: new Date(),
+      }).catch((err) => {
+        console.error('[ScanLog] Non-blocking scan log save error:', err.message);
+      });
+    }
+
+    // Determine cross-facility access context
+    const userFacilityId = (req.user.facility?._id || req.user.facility || '').toString();
+    const patientOriginFacilityId = (patient.registeredAtFacility?._id || '').toString();
+    const isCrossFacility = Boolean(userFacilityId && patientOriginFacilityId && userFacilityId !== patientOriginFacilityId);
+
+    res.status(200).json({
+      success: true,
+      patient,
+      age,
+      qrCodeDataUrl,
+      encounters,
+      encounterCount: encounters.length,
+      scanContext: {
+        scannedByWorker: req.user.name,
+        workerRole: req.user.role,
+        scannedAtFacility: req.user.facility?.name || 'Local Health Facility',
+        isCrossFacility,
+      },
+    });
+  } catch (error) {
+    console.error('[Patient Controller] lookupPatientByPHID Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to lookup patient record',
+    });
+  }
+};
+
+/**
+ * @desc    Explicit Scan Log Recording Endpoint
+ * @route   POST /api/patients/lookup/:phid/scan-log
+ * @access  Private (Any authenticated clinical worker)
+ */
+const recordScanLog = async (req, res) => {
+  try {
+    const rawPhid = req.params.phid ? req.params.phid.trim() : '';
+    const { scanSource } = req.body;
+
+    const patient = await Patient.findOne({
+      phid: new RegExp('^' + rawPhid + '$', 'i'),
+    });
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: `Cannot log scan: Patient with PHID '${rawPhid}' not found`,
+      });
+    }
+
+    const facilityId = req.user.facility?._id || req.user.facility || patient.registeredAtFacility;
+
+    const scanLog = await ScanLog.create({
+      patient: patient._id,
+      phid: patient.phid,
+      worker: req.user._id,
+      facility: facilityId,
+      scanSource: scanSource || 'camera_qr',
+      scannedAt: new Date(),
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Scan event logged successfully',
+      scanLog,
+    });
+  } catch (error) {
+    console.error('[Patient Controller] recordScanLog Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to record scan log',
+    });
+  }
+};
+
+/**
  * @desc    Get printable patient card data + scannable QR code
  * @route   GET /api/patients/:id/card
  * @access  Private (Frontline Worker, Medical Officer, Admin)
@@ -413,6 +550,8 @@ const updatePatient = async (req, res) => {
 module.exports = {
   checkDuplicate,
   registerPatient,
+  lookupPatientByPHID,
+  recordScanLog,
   getPatientCard,
   getPatients,
   getPatientById,

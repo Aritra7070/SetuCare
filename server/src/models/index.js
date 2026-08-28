@@ -4,6 +4,7 @@ const Patient = require('./Patient');
 const Encounter = require('./Encounter');
 const Referral = require('./Referral');
 const FollowUp = require('./FollowUp');
+const ScanLog = require('./ScanLog');
 
 module.exports = {
   User,
@@ -12,4 +13,5 @@ module.exports = {
   Encounter,
   Referral,
   FollowUp,
+  ScanLog,
 };

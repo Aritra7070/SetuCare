@@ -4,6 +4,7 @@ import { Navbar } from './components/Navbar';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { ScanLookupPage } from './pages/ScanLookupPage';
 import { PatientRegisterPage } from './pages/PatientRegisterPage';
 import { PatientsListPage } from './pages/PatientsListPage';
 import { AdminFacilitiesPage } from './pages/AdminFacilitiesPage';
@@ -11,7 +12,7 @@ import { Activity } from 'lucide-react';
 
 export function App() {
   const { user, authChecking, fetchMe } = useAuthStore();
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'patient-register' | 'patients-list' | 'admin-facilities' | 'login' | 'register'
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'scan-lookup' | 'patient-register' | 'patients-list' | 'admin-facilities' | 'login' | 'register'
 
   useEffect(() => {
     fetchMe();
@@ -25,6 +26,7 @@ export function App() {
     } else {
       if (
         currentView === 'dashboard' ||
+        currentView === 'scan-lookup' ||
         currentView === 'patient-register' ||
         currentView === 'patients-list' ||
         currentView === 'admin-facilities'
@@ -74,6 +76,8 @@ export function App() {
 
   const renderCurrentView = () => {
     switch (currentView) {
+      case 'scan-lookup':
+        return <ScanLookupPage onNavigateToRegister={() => setCurrentView('patient-register')} />;
       case 'patient-register':
         return <PatientRegisterPage onNavigateToList={() => setCurrentView('patients-list')} />;
       case 'patients-list':
@@ -87,6 +91,7 @@ export function App() {
             onNavigateToFacilities={() => setCurrentView('admin-facilities')}
             onNavigateToRegister={() => setCurrentView('patient-register')}
             onNavigateToPatients={() => setCurrentView('patients-list')}
+            onNavigateToScan={() => setCurrentView('scan-lookup')}
           />
         );
     }
@@ -115,7 +120,7 @@ export function App() {
           background: 'rgba(11, 17, 32, 0.9)',
         }}
       >
-        SetuCare (सेतुकेअर) &bull; Phase 1 Foundation &bull; Stepped-Care Clinical Navigation & Referral System
+        SetuCare (सेतुकेअर) &bull; Phase 1 & 2 &bull; Stepped-Care Clinical Navigation & Referral System
       </footer>
     </div>
   );
