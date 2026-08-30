@@ -2,6 +2,7 @@ const Encounter = require('../models/Encounter');
 const Patient = require('../models/Patient');
 const Facility = require('../models/Facility');
 const { SYMPTOM_TAGS } = require('../utils/symptomTags');
+const { runTriage } = require('../utils/triageEngine');
 
 /**
  * @desc    Create a new clinical encounter for a patient
@@ -237,8 +238,90 @@ const getPatientEncounters = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Run the digital triage rule engine against a stored Encounter
+ * @route   POST /api/encounters/:id/triage
+ * @access  Private (frontline_worker, medical_officer)
+ *
+ * PRD §4 immutability note: this does NOT contradict Step 5's append-only rule.
+ * Clinical content (vitals/symptoms/notes) entered by a human is never touched.
+ * triageResult is a system-computed annotation that can be safely (re-)written.
+ * Re-running against the same Encounter overwrites the previous result — idempotent.
+ */
+const triageEncounter = async (req, res) => {
+  try {
+    const encounter = await Encounter.findById(req.params.id)
+      .populate('facility', 'name tier district state shortCode parentFacility');
+
+    if (!encounter) {
+      return res.status(404).json({
+        success: false,
+        message: 'Encounter not found',
+      });
+    }
+
+    // Run pure rule engine — no DB side-effects inside
+    const { riskLevel, rationale, suggestedFacility } = await runTriage({
+      vitals: encounter.vitals || {},
+      symptoms: encounter.symptoms || [],
+      facilityId: encounter.facility?._id || encounter.facility,
+    });
+
+    // Build suggestedRouting display string
+    const suggestedRouting = suggestedFacility
+      ? `${suggestedFacility.name} (${suggestedFacility.tier?.replace(/_/g, ' ')})`
+      : null;
+
+    // Write result back — only the triageResult subdoc is touched
+    encounter.triageResult = {
+      riskLevel,
+      rationale,
+      suggestedRouting,
+      suggestedFacility: suggestedFacility?._id || null,
+      scoredAt: new Date(),
+    };
+
+    await encounter.save();
+
+    // Re-fetch with full population so the response matches what the timeline renders
+    const populated = await Encounter.findById(encounter._id)
+      .populate('facility', 'name tier district state shortCode contactPhone')
+      .populate('worker', 'name role')
+      .populate('patient', 'phid name dob gender')
+      .populate('triageResult.suggestedFacility', 'name tier district state shortCode contactPhone');
+
+    res.status(200).json({
+      success: true,
+      message: `Triage complete — risk level: ${riskLevel}`,
+      encounter: populated,
+      triageResult: {
+        riskLevel,
+        rationale,
+        suggestedRouting,
+        suggestedFacility: suggestedFacility
+          ? {
+              _id: suggestedFacility._id,
+              name: suggestedFacility.name,
+              tier: suggestedFacility.tier,
+              district: suggestedFacility.district,
+              shortCode: suggestedFacility.shortCode,
+            }
+          : null,
+        scoredAt: encounter.triageResult.scoredAt,
+      },
+    });
+  } catch (error) {
+    console.error('[Encounter Controller] Triage Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to run triage',
+    });
+  }
+};
+
 module.exports = {
   createEncounter,
   getEncounterById,
   getPatientEncounters,
+  triageEncounter,
 };

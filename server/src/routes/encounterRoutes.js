@@ -4,6 +4,7 @@ const {
   createEncounter,
   getEncounterById,
   getPatientEncounters,
+  triageEncounter,
 } = require('../controllers/encounterController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
@@ -27,6 +28,15 @@ router.get('/', protect, getPatientEncounters);
 
 // GET /api/encounters/patient/:phid — PHID-based lookup (used by patientRoutes alias too)
 router.get('/patient/:phid', protect, getPatientEncounters);
+
+// POST /api/encounters/:id/triage — run rule engine, write result back
+// Must be declared BEFORE GET /:id so Express doesn't swallow the /triage segment
+router.post(
+  '/:id/triage',
+  protect,
+  roleGuard('frontline_worker', 'medical_officer', 'admin'),
+  triageEncounter
+);
 
 // GET /api/encounters/:id — single encounter detail
 router.get('/:id', protect, getEncounterById);

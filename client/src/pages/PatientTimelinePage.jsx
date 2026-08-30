@@ -110,8 +110,10 @@ function tierConfig(tier) {
 // ---------------------------------------------------------------------------
 // EncounterCard — extension point for Step 8/9 referral chip is marked below
 // ---------------------------------------------------------------------------
-function EncounterCard({ enc }) {
+function EncounterCard({ enc, onTriageRun }) {
   const [notesExpanded, setNotesExpanded] = useState(false);
+  const [triageLoading, setTriageLoading] = useState(false);
+  const [triageError, setTriageError]     = useState(null);
   const tier = tierConfig(enc.facility?.tier);
   const typeCfg = ENCOUNTER_TYPE_CONFIG[enc.encounterType] || ENCOUNTER_TYPE_CONFIG.walk_in;
 
@@ -119,6 +121,21 @@ function EncounterCard({ enc }) {
     enc.vitals?.bp?.systolic || enc.vitals?.bp?.diastolic ||
     enc.vitals?.tempC != null || enc.vitals?.pulse != null ||
     enc.vitals?.spo2 != null || enc.vitals?.weightKg != null;
+
+  const handleRunTriage = async () => {
+    setTriageLoading(true);
+    setTriageError(null);
+    try {
+      const res = await api.post(`/encounters/${enc._id}/triage`);
+      if (res.data.success) {
+        onTriageRun(enc._id, res.data.triageResult);
+      }
+    } catch (err) {
+      setTriageError(err.message || 'Triage failed');
+    } finally {
+      setTriageLoading(false);
+    }
+  };
 
   return (
     <div
@@ -307,18 +324,91 @@ function EncounterCard({ enc }) {
         </div>
       )}
 
-      {/* ── Triage routing suggestion (Step 7, conditional) ── */}
-      {enc.triageResult?.suggestedRouting && (
-        <div
-          style={{
-            background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
-            padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)',
-            fontSize: '0.8rem', color: '#fbbf24',
-            display: 'flex', alignItems: 'center', gap: '0.5rem',
-          }}
-        >
-          <Zap size={13} />
-          <span>Triage routing: {enc.triageResult.suggestedRouting}</span>
+      {/* ── Triage panel (Step 7) ── */}
+      {enc.triageResult?.riskLevel ? (() => {
+        const tc = TRIAGE_CONFIG[enc.triageResult.riskLevel] || TRIAGE_CONFIG.routine;
+        return (
+          <div
+            style={{
+              background: tc.bg, border: `1px solid ${tc.border}`,
+              borderRadius: 'var(--radius-sm)', padding: '0.7rem 0.9rem',
+              display: 'flex', flexDirection: 'column', gap: '0.4rem',
+            }}
+          >
+            {/* Badge + rationale */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
+              <span
+                style={{
+                  padding: '0.15rem 0.55rem', borderRadius: 'var(--radius-full)',
+                  fontSize: '0.72rem', fontWeight: '800',
+                  background: tc.bg, color: tc.color, border: `1px solid ${tc.border}`,
+                  display: 'flex', alignItems: 'center', gap: '0.3rem', flexShrink: 0,
+                }}
+              >
+                <Zap size={10} /> {tc.label} Risk
+              </span>
+              <span style={{ fontSize: '0.8rem', color: '#e2e8f0' }}>
+                {enc.triageResult.rationale}
+              </span>
+            </div>
+
+            {/* Suggested facility */}
+            {enc.triageResult.suggestedRouting && (
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  fontSize: '0.78rem', color: tc.color,
+                  paddingTop: '0.35rem', borderTop: `1px solid ${tc.border}`,
+                }}
+              >
+                <Hospital size={12} />
+                <span>Suggested: <strong>{enc.triageResult.suggestedRouting}</strong></span>
+                {/* EXTENSION POINT (Step 8): "Create Referral" button slots in here */}
+              </div>
+            )}
+
+            {/* Scored timestamp + re-run */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.2rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+              {enc.triageResult.scoredAt && (
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  Scored {new Date(enc.triageResult.scoredAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleRunTriage}
+                disabled={triageLoading}
+                style={{
+                  background: 'none', border: 'none', padding: 0,
+                  fontSize: '0.72rem', color: 'var(--text-muted)',
+                  display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer',
+                }}
+              >
+                <Zap size={11} />{triageLoading ? 'Re-running…' : 'Re-run Triage'}
+              </button>
+            </div>
+          </div>
+        );
+      })() : (
+        /* No triage yet */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+          <button
+            type="button"
+            onClick={handleRunTriage}
+            disabled={triageLoading}
+            className="btn btn-outline btn-sm"
+            style={{
+              alignSelf: 'flex-start', fontSize: '0.78rem', padding: '0.3rem 0.7rem',
+              color: '#f59e0b', borderColor: 'rgba(245,158,11,0.35)',
+            }}
+          >
+            <Zap size={12} />{triageLoading ? 'Running Triage…' : 'Run Digital Triage'}
+          </button>
+          {triageError && (
+            <div style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <AlertTriangle size={11} /> {triageError}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -360,6 +450,9 @@ export const PatientTimelinePage = ({ phid, onBack, onNavigateToScan }) => {
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
   const [encounterModalOpen, setEncounterModalOpen] = useState(false);
+  // Optimistic triage results — keyed by encounter _id.
+  // Merged over the fetched encounter list so the card updates without a full refetch.
+  const [triageOverrides, setTriageOverrides] = useState({});
 
   const fetchTimeline = useCallback(async () => {
     if (!phid) return;
@@ -384,12 +477,12 @@ export const PatientTimelinePage = ({ phid, onBack, onNavigateToScan }) => {
   const handleEncounterCreated = (encounter, action) => {
     setEncounterModalOpen(false);
     fetchTimeline(); // refresh timeline to show the new card
-    if (action === 'triage') {
-      alert(
-        'Step 7 Digital Triage Rule Engine — coming in Phase 2. ' +
-        'Will compute risk levels and routing recommendations for encounter ' + encounter._id
-      );
-    }
+    // 'triage' action no longer uses an alert — the modal handles it inline now
+  };
+
+  // Called by EncounterCard when triage runs successfully
+  const handleTriageRun = (encounterId, triageResult) => {
+    setTriageOverrides((prev) => ({ ...prev, [encounterId]: triageResult }));
   };
 
   // ── Loading state ──
@@ -687,7 +780,13 @@ export const PatientTimelinePage = ({ phid, onBack, onNavigateToScan }) => {
           /* ── Encounter cards ── */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {encounters.map((enc) => (
-              <EncounterCard key={enc._id} enc={enc} />
+              <EncounterCard
+                key={enc._id}
+                enc={triageOverrides[enc._id]
+                  ? { ...enc, triageResult: triageOverrides[enc._id] }
+                  : enc}
+                onTriageRun={handleTriageRun}
+              />
             ))}
           </div>
         )}

@@ -95,6 +95,9 @@ export const EncounterCreateModal = ({ patient, onClose, onSuccess }) => {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
   const [savedEncounter, setSavedEncounter] = useState(null); // success screen
+  const [triageResult, setTriageResult] = useState(null);     // populated after triage run
+  const [triageLoading, setTriageLoading] = useState(false);
+  const [triageError, setTriageError] = useState(null);
 
   // ---------------------------------------------------------------------------
   // Derived vitals warnings (recalculated on each render, cheap)
@@ -168,9 +171,35 @@ export const EncounterCreateModal = ({ patient, onClose, onSuccess }) => {
   };
 
   // ---------------------------------------------------------------------------
+  // Triage runner — called when worker clicks "Run Triage" on success screen
+  // ---------------------------------------------------------------------------
+  const handleRunTriage = async () => {
+    if (!savedEncounter?._id) return;
+    setTriageLoading(true);
+    setTriageError(null);
+    try {
+      const res = await api.post(`/encounters/${savedEncounter._id}/triage`);
+      if (res.data.success) {
+        setTriageResult(res.data.triageResult);
+      }
+    } catch (err) {
+      setTriageError(err.message || 'Triage failed — please try again');
+    } finally {
+      setTriageLoading(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
   // Success screen
   // ---------------------------------------------------------------------------
   if (savedEncounter) {
+    const TRIAGE_CFG = {
+      routine:   { label: 'Routine',   bg: 'rgba(16,185,129,0.15)',  color: '#34d399', border: 'rgba(16,185,129,0.35)',  icon: '✅' },
+      urgent:    { label: 'Urgent',    bg: 'rgba(245,158,11,0.15)',  color: '#fbbf24', border: 'rgba(245,158,11,0.35)',  icon: '⚠️' },
+      emergency: { label: 'Emergency', bg: 'rgba(244,63,94,0.18)',   color: '#fb7185', border: 'rgba(244,63,94,0.45)',   icon: '🚨' },
+    };
+    const tc = triageResult ? (TRIAGE_CFG[triageResult.riskLevel] || TRIAGE_CFG.routine) : null;
+
     return (
       <div
         style={{
@@ -184,78 +213,147 @@ export const EncounterCreateModal = ({ patient, onClose, onSuccess }) => {
         <div
           className="card"
           style={{
-            width: '100%', maxWidth: '520px',
-            border: '1px solid rgba(16,185,129,0.5)',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 35px rgba(16,185,129,0.2)',
-            padding: '2rem', textAlign: 'center',
+            width: '100%', maxWidth: '540px',
+            border: triageResult
+              ? `1px solid ${tc.border}`
+              : '1px solid rgba(16,185,129,0.5)',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 35px rgba(16,185,129,0.15)',
+            padding: '2rem',
+            transition: 'border-color 0.3s ease',
           }}
         >
-          <div
-            style={{
-              width: '56px', height: '56px', borderRadius: '14px',
-              background: 'linear-gradient(135deg,#10b981 0%,#06b6d4 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 1rem auto',
-            }}
-          >
-            <CheckCircle2 size={28} color="#ffffff" />
+          {/* ── Saved confirmation header ── */}
+          <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+            <div
+              style={{
+                width: '56px', height: '56px', borderRadius: '14px',
+                background: 'linear-gradient(135deg,#10b981 0%,#06b6d4 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 0.85rem auto',
+              }}
+            >
+              <CheckCircle2 size={28} color="#ffffff" />
+            </div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#ffffff', marginBottom: '0.3rem' }}>
+              Encounter Recorded
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+              Saved and stamped to{' '}
+              <strong style={{ color: '#38bdf8' }}>
+                {savedEncounter.facility?.name || 'your facility'}
+              </strong>
+            </p>
           </div>
 
-          <h2 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#ffffff', marginBottom: '0.4rem' }}>
-            Encounter Recorded
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.75rem' }}>
-            Clinical encounter for{' '}
-            <strong style={{ color: '#f8fafc' }}>{patient.name}</strong> has been saved and
-            stamped to{' '}
-            <strong style={{ color: '#38bdf8' }}>
-              {savedEncounter.facility?.name || user?.facility?.name || 'your facility'}
-            </strong>.
-          </p>
-
-          {/* Encounter summary pill row */}
-          <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem' }}>
-            <span style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem', color: '#34d399' }}>
-              {savedEncounter.encounterType?.replace('_', ' ')}
+          {/* Summary pills */}
+          <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.45rem', marginBottom: '1.25rem' }}>
+            <span style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', padding: '0.18rem 0.55rem', borderRadius: '6px', fontSize: '0.76rem', color: '#34d399' }}>
+              {savedEncounter.encounterType?.replace(/_/g, ' ')}
             </span>
             {selectedSymptoms.length > 0 && (
-              <span style={{ background: 'rgba(20,184,166,0.12)', border: '1px solid rgba(20,184,166,0.25)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem', color: '#5eead4' }}>
-                {selectedSymptoms.length} symptom{selectedSymptoms.length !== 1 ? 's' : ''} logged
+              <span style={{ background: 'rgba(20,184,166,0.12)', border: '1px solid rgba(20,184,166,0.25)', padding: '0.18rem 0.55rem', borderRadius: '6px', fontSize: '0.76rem', color: '#5eead4' }}>
+                {selectedSymptoms.length} symptom{selectedSymptoms.length !== 1 ? 's' : ''}
               </span>
             )}
             {savedEncounter.vitals?.bp?.systolic && (
-              <span style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem', color: '#93c5fd' }}>
+              <span style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', padding: '0.18rem 0.55rem', borderRadius: '6px', fontSize: '0.76rem', color: '#93c5fd' }}>
                 BP {savedEncounter.vitals.bp.systolic}/{savedEncounter.vitals.bp.diastolic} mmHg
               </span>
             )}
           </div>
 
-          {/* Dual CTA — PRD §6 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          {/* ── Triage result panel (appears after engine runs) ── */}
+          {triageResult && (
+            <div
+              style={{
+                background: tc.bg, border: `1px solid ${tc.border}`,
+                borderRadius: 'var(--radius-md)', padding: '1rem 1.1rem',
+                marginBottom: '1.25rem',
+              }}
+            >
+              {/* Risk badge + label */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+                <span
+                  style={{
+                    padding: '0.25rem 0.7rem', borderRadius: 'var(--radius-full)',
+                    fontSize: '0.8rem', fontWeight: '800',
+                    background: tc.bg, color: tc.color, border: `1px solid ${tc.border}`,
+                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                  }}
+                >
+                  <Zap size={12} /> {tc.label} Risk
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {tc.icon} Triage Complete
+                </span>
+              </div>
+
+              {/* Rationale — the "why" */}
+              <div style={{ fontSize: '0.85rem', color: '#f1f5f9', marginBottom: triageResult.suggestedRouting ? '0.6rem' : 0 }}>
+                {triageResult.rationale}
+              </div>
+
+              {/* Suggested routing — only for urgent/emergency */}
+              {triageResult.suggestedRouting && (
+                <div
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.4rem',
+                    fontSize: '0.8rem', color: tc.color,
+                    paddingTop: '0.5rem', borderTop: `1px solid ${tc.border}`,
+                  }}
+                >
+                  <Hospital size={13} />
+                  <span>Suggested: <strong>{triageResult.suggestedRouting}</strong></span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Triage error */}
+          {triageError && (
+            <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+              <AlertTriangle size={14} />
+              <div style={{ fontSize: '0.82rem' }}>{triageError}</div>
+            </div>
+          )}
+
+          {/* ── CTAs ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            {/* Triage button — morphs to "Re-run" after first result */}
+            {!triageResult ? (
+              <button
+                className="btn btn-outline"
+                style={{ width: '100%', borderColor: 'rgba(245,158,11,0.45)', color: '#fbbf24' }}
+                disabled={triageLoading}
+                onClick={handleRunTriage}
+              >
+                <Zap size={15} />
+                {triageLoading ? 'Running Triage…' : 'Run Digital Triage on This Encounter'}
+              </button>
+            ) : (
+              <button
+                className="btn btn-outline"
+                style={{ width: '100%', borderColor: 'rgba(245,158,11,0.3)', color: '#92400e', fontSize: '0.8rem' }}
+                disabled={triageLoading}
+                onClick={handleRunTriage}
+              >
+                <Zap size={13} />
+                {triageLoading ? 'Re-running…' : 'Re-run Triage'}
+              </button>
+            )}
+
             <button
               className="btn btn-primary"
               style={{ width: '100%' }}
-              onClick={() => {
-                onSuccess(savedEncounter, 'timeline');
-              }}
+              onClick={() => onSuccess(savedEncounter, 'timeline')}
             >
               <Activity size={15} /> View Patient Timeline
             </button>
 
             <button
-              className="btn btn-outline"
-              style={{ width: '100%', borderColor: 'rgba(245,158,11,0.4)', color: '#fbbf24' }}
-              onClick={() => {
-                onSuccess(savedEncounter, 'triage');
-              }}
-            >
-              <Zap size={15} /> Run Triage on This Encounter (Step 7)
-            </button>
-
-            <button
               type="button"
               className="btn btn-outline"
-              style={{ width: '100%', fontSize: '0.825rem' }}
+              style={{ width: '100%', fontSize: '0.82rem' }}
               onClick={() => onSuccess(savedEncounter, 'close')}
             >
               <RotateCcw size={13} /> Done — Back to Patient Record
