@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 import { PatientCardModal } from '../components/PatientCardModal';
+import { INDIAN_LANGUAGES } from '../utils/languages';
 import {
   UserPlus,
   Hospital,
@@ -364,9 +365,9 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
                   value={formData.preferredLanguage}
                   onChange={handleChange}
                 >
-                  <option value="mr">मराठी (Marathi - Primary)</option>
-                  <option value="hi">हिंदी (Hindi)</option>
-                  <option value="en">English</option>
+                  {INDIAN_LANGUAGES.map((language) => (
+                    <option key={language.code} value={language.code}>{language.label}</option>
+                  ))}
                 </select>
               </div>
             </div>

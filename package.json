@@ -10,7 +10,8 @@
     "install:all": "npm install && npm --prefix server install && npm --prefix client install",
     "seed:facilities": "npm --prefix server run seed:facilities",
     "start": "npm --prefix server start",
-    "build": "npm --prefix client run build"
+    "build": "npm --prefix client run build",
+    "preview": "npm --prefix client run preview"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

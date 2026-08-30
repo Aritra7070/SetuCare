@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 import { UserPlus, Activity, ArrowRight, AlertCircle, Building2 } from 'lucide-react';
+import { INDIAN_LANGUAGES } from '../utils/languages';
 
 export const RegisterPage = ({ onSwitchToLogin }) => {
   const { register, loading, error, clearError } = useAuthStore();
@@ -193,9 +194,9 @@ export const RegisterPage = ({ onSwitchToLogin }) => {
               value={formData.preferredLanguage}
               onChange={handleChange}
             >
-              <option value="mr">मराठी (Marathi - Primary)</option>
-              <option value="hi">हिंदी (Hindi)</option>
-              <option value="en">English</option>
+              {INDIAN_LANGUAGES.map((language) => (
+                <option key={language.code} value={language.code}>{language.label}</option>
+              ))}
             </select>
           </div>
 

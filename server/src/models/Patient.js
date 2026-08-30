@@ -39,7 +39,7 @@ const patientSchema = new mongoose.Schema(
     },
     preferredLanguage: {
       type: String,
-      enum: ['en', 'hi', 'mr'],
+      enum: ['en', 'as', 'bn', 'brx', 'doi', 'gu', 'hi', 'kn', 'ks', 'kok', 'mai', 'ml', 'mni', 'mr', 'ne', 'or', 'pa', 'sa', 'sat', 'sd', 'ta', 'te', 'ur'],
       default: 'mr',
     },
   },
