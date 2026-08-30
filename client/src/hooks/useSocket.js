@@ -28,10 +28,8 @@ function getOrCreateSocket() {
   if (_socket) return _socket;
 
   _socket = io(
-    // In development Vite proxies /api → localhost:5000, but Socket.IO
-    // connects to the origin directly (not via the /api path), so we
-    // point straight at the server URL.
-    import.meta.env.VITE_API_URL || 'http://localhost:5000',
+    // Strip trailing slash to avoid double-slash in Socket.IO path
+    (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, ''),
     {
       withCredentials: true,     // sends the httpOnly JWT cookie
       transports: ['websocket', 'polling'],
