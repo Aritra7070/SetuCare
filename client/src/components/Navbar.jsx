@@ -16,165 +16,296 @@ export const Navbar = ({ currentView, setCurrentView }) => {
 
   const getRoleDisplayName = (role) => {
     switch (role) {
-      case 'frontline_worker':
-        return 'ASHA / Frontline Worker';
-      case 'medical_officer':
-        return 'Medical Officer (MO)';
-      case 'specialist':
-        return 'Specialist (DH/RH)';
-      case 'program_manager':
-        return 'Program Manager';
-      case 'admin':
-        return 'System Administrator';
-      default:
-        return role || 'User';
-    }
-  };
-
-  const getLanguageName = (code) => {
-    switch (code) {
-      case 'mr':
-        return 'मराठी (MR)';
-      case 'hi':
-        return 'हिंदी (HI)';
-      default:
-        return 'English (EN)';
+      case 'frontline_worker':   return 'ASHA / Frontline Worker';
+      case 'medical_officer':    return 'Medical Officer (MO)';
+      case 'specialist':         return 'Specialist (DH/RH)';
+      case 'program_manager':    return 'Program Manager';
+      case 'admin':              return 'System Administrator';
+      default:                   return role || 'User';
     }
   };
 
   const canRegisterPatients =
     user && ['frontline_worker', 'medical_officer', 'admin'].includes(user.role);
 
+  /* ── shared pill button style ── */
+  const pill = (active) => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 14px',
+    borderRadius: '9999px',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: active ? '600' : '500',
+    fontFamily: 'inherit',
+    background: active ? 'rgba(20,184,166,0.18)' : 'transparent',
+    color: active ? '#5eead4' : 'rgba(255,255,255,0.72)',
+    transition: 'background 0.18s, color 0.18s',
+  });
+
   return (
-    <header className="navbar no-print">
-      <div className="nav-content">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.75rem' }}>
+    <header
+      className="no-print"
+      style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 20px',
+        height: '56px',
+        background: 'rgba(10,15,29,0.92)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+      }}
+    >
+      {/* ── Left: brand + nav ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Brand mark */}
+        <div
+          onClick={() => setCurrentView('dashboard')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            cursor: 'pointer',
+            marginRight: '6px',
+          }}
+        >
           <div
-            className="brand-wrapper"
-            style={{ cursor: 'pointer' }}
-            onClick={() => setCurrentView('dashboard')}
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '9px',
+              background: 'linear-gradient(135deg,#0d9488 0%,#06b6d4 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 12px rgba(20,184,166,0.35)',
+              flexShrink: 0,
+            }}
           >
-            <div className="brand-icon">
-              <Activity size={22} color="#ffffff" />
-            </div>
-            <div>
-              <div className="brand-title">
-                SetuCare <span>सेतुकेअर</span>
-              </div>
-            </div>
-            <span className="brand-subtitle">Phase 1 Foundation</span>
+            <Activity size={18} color="#ffffff" />
           </div>
-
-          {user && (
-            <nav style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => setCurrentView('dashboard')}
-                className={`btn btn-sm ${currentView === 'dashboard' ? 'btn-primary' : 'btn-outline'}`}
-                style={{ borderRadius: 'var(--radius-full)', padding: '0.35rem 0.85rem' }}
-              >
-                <LayoutDashboard size={14} />
-                Overview
-              </button>
-
-              <button
-                onClick={() => setCurrentView('scan-lookup')}
-                className={`btn btn-sm ${currentView === 'scan-lookup' ? 'btn-primary' : 'btn-outline'}`}
-                style={{ borderRadius: 'var(--radius-full)', padding: '0.35rem 0.85rem' }}
-              >
-                <QrCode size={14} />
-                Scan / Lookup
-              </button>
-
-              {canRegisterPatients && (
-                <button
-                  onClick={() => setCurrentView('patient-register')}
-                  className={`btn btn-sm ${currentView === 'patient-register' ? 'btn-primary' : 'btn-outline'}`}
-                  style={{ borderRadius: 'var(--radius-full)', padding: '0.35rem 0.85rem' }}
-                >
-                  <UserPlus size={14} />
-                  Register Patient
-                </button>
-              )}
-
-              <button
-                onClick={() => setCurrentView('patients-list')}
-                className={`btn btn-sm ${currentView === 'patients-list' ? 'btn-primary' : 'btn-outline'}`}
-                style={{ borderRadius: 'var(--radius-full)', padding: '0.35rem 0.85rem' }}
-              >
-                <Users size={14} />
-                Patients
-              </button>
-
-              {user.role === 'admin' && (
-                <button
-                  onClick={() => setCurrentView('admin-facilities')}
-                  className={`btn btn-sm ${currentView === 'admin-facilities' ? 'btn-primary' : 'btn-outline'}`}
-                  style={{ borderRadius: 'var(--radius-full)', padding: '0.35rem 0.85rem' }}
-                >
-                  <Building2 size={14} />
-                  Facilities
-                </button>
-              )}
-            </nav>
-          )}
+          <span
+            style={{
+              fontSize: '15px',
+              fontWeight: '700',
+              color: '#f8fafc',
+              letterSpacing: '-0.01em',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            SetuCare
+          </span>
         </div>
 
-        <div className="nav-actions">
-          {user ? (
-            <>
-              <div className="user-badge">
-                <div className="avatar-circle">
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#f8fafc' }}>
-                    {user.name}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className={`role-badge role-${user.role}`}>
-                      {getRoleDisplayName(user.role)}
-                    </span>
-                    {user.facility && (
-                      <span className="tier-badge" title={user.facility.name}>
-                        <Hospital size={11} style={{ display: 'inline', marginRight: '3px' }} />
-                        {user.facility.name}
-                      </span>
-                    )}
-                  </div>
-                </div>
+        {/* Nav pills — only when logged in */}
+        {user && (
+          <nav
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '2px',
+              background: '#0C0C0C',
+              borderRadius: '9999px',
+              padding: '4px 6px',
+            }}
+          >
+            <button
+              style={pill(currentView === 'dashboard')}
+              onClick={() => setCurrentView('dashboard')}
+              onMouseEnter={(e) => { if (currentView !== 'dashboard') { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#ffffff'; } }}
+              onMouseLeave={(e) => { if (currentView !== 'dashboard') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
+            >
+              <LayoutDashboard size={13} />
+              Overview
+            </button>
+
+            <button
+              style={pill(currentView === 'scan-lookup' || currentView === 'patient-timeline')}
+              onClick={() => setCurrentView('scan-lookup')}
+              onMouseEnter={(e) => { const a = currentView === 'scan-lookup' || currentView === 'patient-timeline'; if (!a) { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#ffffff'; } }}
+              onMouseLeave={(e) => { const a = currentView === 'scan-lookup' || currentView === 'patient-timeline'; if (!a) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
+            >
+              <QrCode size={13} />
+              Scan / Lookup
+            </button>
+
+            {canRegisterPatients && (
+              <button
+                style={pill(currentView === 'patient-register')}
+                onClick={() => setCurrentView('patient-register')}
+                onMouseEnter={(e) => { if (currentView !== 'patient-register') { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#ffffff'; } }}
+                onMouseLeave={(e) => { if (currentView !== 'patient-register') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
+              >
+                <UserPlus size={13} />
+                Register Patient
+              </button>
+            )}
+
+            <button
+              style={pill(currentView === 'patients-list')}
+              onClick={() => setCurrentView('patients-list')}
+              onMouseEnter={(e) => { if (currentView !== 'patients-list') { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#ffffff'; } }}
+              onMouseLeave={(e) => { if (currentView !== 'patients-list') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
+            >
+              <Users size={13} />
+              Patients
+            </button>
+
+            {user.role === 'admin' && (
+              <button
+                style={pill(currentView === 'admin-facilities')}
+                onClick={() => setCurrentView('admin-facilities')}
+                onMouseEnter={(e) => { if (currentView !== 'admin-facilities') { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#ffffff'; } }}
+                onMouseLeave={(e) => { if (currentView !== 'admin-facilities') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
+              >
+                <Building2 size={13} />
+                Facilities
+              </button>
+            )}
+          </nav>
+        )}
+      </div>
+
+      {/* ── Right: user info + logout ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        {user ? (
+          <>
+            {/* Avatar + name + role chip */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '9999px',
+                padding: '4px 12px 4px 6px',
+              }}
+            >
+              <div
+                style={{
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg,#0d9488 0%,#3b82f6 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: '700',
+                  fontSize: '11px',
+                  color: '#ffffff',
+                  flexShrink: 0,
+                }}
+              >
+                {user.name?.charAt(0).toUpperCase() || 'U'}
               </div>
-
-              <span className="tier-badge" style={{ background: 'rgba(6, 182, 212, 0.1)', color: '#22d3ee' }}>
-                {getLanguageName(user.preferredLanguage)}
-              </span>
-
-              <button
-                onClick={logout}
-                disabled={loading}
-                className="btn btn-outline btn-sm"
-                title="Sign out of SetuCare"
-              >
-                <LogOut size={15} />
-                Logout
-              </button>
-            </>
-          ) : (
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                onClick={() => setCurrentView('login')}
-                className={`btn btn-sm ${currentView === 'login' ? 'btn-primary' : 'btn-outline'}`}
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => setCurrentView('register')}
-                className={`btn btn-sm ${currentView === 'register' ? 'btn-primary' : 'btn-outline'}`}
-              >
-                Register
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#f8fafc', lineHeight: 1.2 }}>
+                  {user.name}
+                </span>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: '600',
+                    color: '#14b8a6',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {getRoleDisplayName(user.role)}
+                </span>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Facility chip */}
+            {user.facility && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  background: 'rgba(6,182,212,0.08)',
+                  border: '1px solid rgba(6,182,212,0.2)',
+                  borderRadius: '9999px',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  color: '#22d3ee',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Hospital size={11} />
+                {user.facility.name}
+              </div>
+            )}
+
+            {/* Logout */}
+            <button
+              onClick={logout}
+              disabled={loading}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 12px',
+                borderRadius: '9999px',
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'transparent',
+                color: 'rgba(255,255,255,0.6)',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'color 0.2s, border-color 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+            >
+              <LogOut size={13} />
+              Logout
+            </button>
+          </>
+        ) : (
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              onClick={() => setCurrentView('login')}
+              style={{
+                padding: '6px 16px',
+                borderRadius: '9999px',
+                border: '1px solid rgba(255,255,255,0.15)',
+                background: 'transparent',
+                color: 'rgba(255,255,255,0.8)',
+                fontSize: '13px',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => setCurrentView('register')}
+              style={{
+                padding: '6px 16px',
+                borderRadius: '9999px',
+                border: 'none',
+                background: '#ffffff',
+                color: '#000000',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              Get Started
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

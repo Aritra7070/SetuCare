@@ -1,7 +1,5 @@
 import React from 'react';
 import { useAuthStore } from '../stores/authStore';
-import { SchemaViewer } from '../components/SchemaViewer';
-import { AccessTester } from '../components/AccessTester';
 import {
   User,
   Hospital,
@@ -384,12 +382,6 @@ export const DashboardPage = ({
           )}
         </div>
       </div>
-
-      {/* Interactive Access & Middleware Tester */}
-      <AccessTester user={user} />
-
-      {/* Interactive Schema Visualizer */}
-      <SchemaViewer />
     </div>
   );
 };
