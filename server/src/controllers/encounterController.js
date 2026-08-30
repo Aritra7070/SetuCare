@@ -1,11 +1,15 @@
 const Encounter = require('../models/Encounter');
 const Patient = require('../models/Patient');
 const Facility = require('../models/Facility');
+const { SYMPTOM_TAGS } = require('../utils/symptomTags');
 
 /**
  * @desc    Create a new clinical encounter for a patient
  * @route   POST /api/encounters
- * @access  Private (Frontline Worker, Medical Officer, Specialist, Admin)
+ * @access  Private (frontline_worker, medical_officer, specialist, admin)
+ *
+ * PRD §4: facility and worker are auto-stamped from req.user — never trusted from body.
+ * PRD §5: no PUT/DELETE routes exist — encounters are append-only.
  */
 const createEncounter = async (req, res) => {
   try {
@@ -13,9 +17,10 @@ const createEncounter = async (req, res) => {
       patientId,
       vitals,
       symptoms,
+      otherSymptoms,
       notes,
       encounterType,
-      facilityId, // optional override for admin
+      facilityId, // admin-only override
     } = req.body;
 
     if (!patientId) {
@@ -25,7 +30,7 @@ const createEncounter = async (req, res) => {
       });
     }
 
-    // 1. Verify Patient
+    // 1. Verify patient exists
     const patient = await Patient.findById(patientId);
     if (!patient) {
       return res.status(404).json({
@@ -34,7 +39,7 @@ const createEncounter = async (req, res) => {
       });
     }
 
-    // 2. Determine Facility (Auto-stamped from user session)
+    // 2. Determine facility — auto-stamped from session; admin may override
     let facility;
     if (req.user.role === 'admin' && facilityId) {
       facility = await Facility.findById(facilityId);
@@ -43,7 +48,6 @@ const createEncounter = async (req, res) => {
       if (targetFacilityId) {
         facility = await Facility.findById(targetFacilityId);
       } else {
-        // Fallback for admin if not attached to a specific facility
         facility = await Facility.findOne({ active: true });
       }
     }
@@ -55,10 +59,30 @@ const createEncounter = async (req, res) => {
       });
     }
 
-    // 3. Format vitals (numeric casts where provided)
+    // 3. Parse vitals — PRD §3: bp stored as {systolic, diastolic} Numbers
     const formattedVitals = {};
     if (vitals) {
-      if (vitals.bp) formattedVitals.bp = vitals.bp.trim();
+      // Accept either structured { systolic, diastolic } or legacy "120/80" string
+      if (vitals.bp !== undefined && vitals.bp !== null && vitals.bp !== '') {
+        if (typeof vitals.bp === 'object') {
+          // Preferred: { systolic: 120, diastolic: 80 }
+          const sys = vitals.bp.systolic !== undefined && vitals.bp.systolic !== ''
+            ? Number(vitals.bp.systolic) : undefined;
+          const dia = vitals.bp.diastolic !== undefined && vitals.bp.diastolic !== ''
+            ? Number(vitals.bp.diastolic) : undefined;
+          if (sys !== undefined || dia !== undefined) {
+            formattedVitals.bp = {};
+            if (sys !== undefined && !isNaN(sys)) formattedVitals.bp.systolic = sys;
+            if (dia !== undefined && !isNaN(dia)) formattedVitals.bp.diastolic = dia;
+          }
+        } else if (typeof vitals.bp === 'string' && vitals.bp.includes('/')) {
+          // Graceful fallback for legacy string "120/80"
+          const [sys, dia] = vitals.bp.split('/').map((n) => Number(n.trim()));
+          formattedVitals.bp = {};
+          if (!isNaN(sys)) formattedVitals.bp.systolic = sys;
+          if (!isNaN(dia)) formattedVitals.bp.diastolic = dia;
+        }
+      }
       if (vitals.tempC !== undefined && vitals.tempC !== '') {
         formattedVitals.tempC = Number(vitals.tempC);
       }
@@ -73,14 +97,21 @@ const createEncounter = async (req, res) => {
       }
     }
 
-    // 4. Create Encounter Document (triageResult left null / unset for Step 5)
+    // 4. Validate symptom tags — PRD §3: controlled vocab, unknown tags are dropped
+    //    (warn in response rather than hard-block, consistent with PRD's lenient stance)
+    const rawSymptoms = Array.isArray(symptoms) ? symptoms.filter(Boolean) : [];
+    const validSymptoms = rawSymptoms.filter((s) => SYMPTOM_TAGS.includes(s));
+    const unknownSymptoms = rawSymptoms.filter((s) => !SYMPTOM_TAGS.includes(s));
+
+    // 5. Create encounter — triageResult staged null for Step 7
     const encounter = await Encounter.create({
       patient: patient._id,
       facility: facility._id,
-      worker: req.user._id, // Auto-stamped worker identity
+      worker: req.user._id,
       vitals: formattedVitals,
-      symptoms: Array.isArray(symptoms) ? symptoms.filter(Boolean) : [],
-      triageResult: null, // Staged for Step 7
+      symptoms: validSymptoms,
+      otherSymptoms: otherSymptoms ? otherSymptoms.trim() : undefined,
+      triageResult: null,
       encounterType: encounterType || 'walk_in',
       notes: notes ? notes.trim() : undefined,
     });
@@ -94,6 +125,11 @@ const createEncounter = async (req, res) => {
       success: true,
       message: 'Clinical encounter recorded successfully',
       encounter: populatedEncounter,
+      ...(unknownSymptoms.length > 0 && {
+        warnings: [
+          `The following symptom tags were not recognised and were omitted: ${unknownSymptoms.join(', ')}`,
+        ],
+      }),
     });
   } catch (error) {
     console.error('[Encounter Controller] Create Error:', error);
@@ -107,7 +143,7 @@ const createEncounter = async (req, res) => {
 /**
  * @desc    Get single encounter details
  * @route   GET /api/encounters/:id
- * @access  Private (Authenticated users)
+ * @access  Private (any authenticated user)
  */
 const getEncounterById = async (req, res) => {
   try {
@@ -137,22 +173,43 @@ const getEncounterById = async (req, res) => {
 };
 
 /**
- * @desc    Get all encounters for a specific patient by PHID
- * @route   GET /api/encounters/patient/:phid (or /api/patients/:phid/encounters)
- * @access  Private (Authenticated users)
+ * @desc    Get all encounters for a patient
+ * @route   GET /api/encounters?patient=:patientId  (MongoDB _id)
+ *          GET /api/encounters/patient/:phid        (PHID string)
+ * @access  Private (any authenticated user)
+ *
+ * PRD §4: deliberately NOT facility-scoped — cross-facility read is the feature.
+ * A PHC doctor must be able to see a sub-centre's encounter from last week.
  */
 const getPatientEncounters = async (req, res) => {
   try {
-    const rawPhid = req.params.phid ? req.params.phid.trim() : '';
+    let patient;
 
-    const patient = await Patient.findOne({
-      phid: new RegExp('^' + rawPhid + '$', 'i'),
-    });
-
-    if (!patient) {
-      return res.status(404).json({
+    if (req.query.patient) {
+      // Query-param form: GET /api/encounters?patient=<MongoDB _id>
+      patient = await Patient.findById(req.query.patient);
+      if (!patient) {
+        return res.status(404).json({
+          success: false,
+          message: 'Patient not found',
+        });
+      }
+    } else if (req.params.phid) {
+      // Path-param form: GET /api/encounters/patient/:phid
+      const rawPhid = req.params.phid.trim();
+      patient = await Patient.findOne({
+        phid: new RegExp('^' + rawPhid + '$', 'i'),
+      });
+      if (!patient) {
+        return res.status(404).json({
+          success: false,
+          message: `Patient with PHID '${rawPhid}' not found`,
+        });
+      }
+    } else {
+      return res.status(400).json({
         success: false,
-        message: `Patient with PHID '${rawPhid}' not found`,
+        message: 'Provide either ?patient=<id> query param or use /patient/:phid path.',
       });
     }
 

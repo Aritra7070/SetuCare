@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { SYMPTOM_TAGS } = require('../utils/symptomTags');
 
 const encounterSchema = new mongoose.Schema(
   {
@@ -18,18 +19,33 @@ const encounterSchema = new mongoose.Schema(
       required: [true, 'Encounter requires a healthcare worker reference'],
     },
     vitals: {
-      bp: { type: String, trim: true },
+      // PRD §3: structured numbers so Step 7 can compare systolic > 140, etc.
+      bp: {
+        systolic: { type: Number },
+        diastolic: { type: Number },
+      },
       tempC: { type: Number },
       pulse: { type: Number },
       weightKg: { type: Number },
       spo2: { type: Number },
     },
+    // PRD §3: controlled tag IDs validated against SYMPTOM_TAGS vocab.
+    // Step 7 triage rule engine pattern-matches these IDs directly.
     symptoms: [
       {
         type: String,
         trim: true,
+        enum: {
+          values: SYMPTOM_TAGS,
+          message: '"{VALUE}" is not a recognised symptom tag. Use a valid SYMPTOM_TAGS id.',
+        },
       },
     ],
+    // Free-text catch-all — NOT parsed by triage (PRD §3)
+    otherSymptoms: {
+      type: String,
+      trim: true,
+    },
     notes: {
       type: String,
       trim: true,
@@ -51,6 +67,7 @@ const encounterSchema = new mongoose.Schema(
     },
   },
   {
+    // PRD §5: immutable audit trail — updatedAt intentionally omitted
     timestamps: { createdAt: true, updatedAt: false },
   }
 );

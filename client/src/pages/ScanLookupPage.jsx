@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { QRScanner } from '../components/QRScanner';
 import { PatientCardModal } from '../components/PatientCardModal';
 import { EncounterCreateModal } from '../components/EncounterCreateModal';
+import { SYMPTOM_LABEL_MAP } from '../utils/symptomVocabulary';
 import {
   QrCode,
   Search,
@@ -106,12 +107,17 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
     setInputPhid('');
   };
 
-  const handleEncounterCreated = (newEncounter) => {
+  const handleEncounterCreated = (newEncounter, action = 'close') => {
     setEncounterModalOpen(false);
-    // Refresh the patient's lookup record and timeline
+    // Always refresh the lookup so the timeline shows the new encounter
     if (lookupResult?.patient?.phid) {
       performLookup(lookupResult.patient.phid, 'direct_lookup');
     }
+    // action === 'triage' — Step 7 hook point (placeholder until Step 7 is built)
+    if (action === 'triage') {
+      alert('Step 7 Digital Triage Rule Engine — coming in Phase 2. This will compute risk levels and routing recommendations for encounter ' + newEncounter._id);
+    }
+    // action === 'timeline' — already handled by the lookup refresh above
   };
 
   const formatDate = (dateStr) => {
@@ -483,9 +489,13 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
                       </div>
 
                       {/* Vitals Pills */}
-                      {enc.vitals && Object.values(enc.vitals).some((v) => v !== undefined && v !== '') && (
+                      {enc.vitals && (
+                        enc.vitals.bp?.systolic || enc.vitals.bp?.diastolic ||
+                        enc.vitals.tempC != null || enc.vitals.pulse != null ||
+                        enc.vitals.spo2 != null || enc.vitals.weightKg != null
+                      ) && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          {enc.vitals.bp && (
+                          {enc.vitals.bp && (enc.vitals.bp.systolic || enc.vitals.bp.diastolic) && (
                             <span
                               style={{
                                 background: 'rgba(59, 130, 246, 0.1)',
@@ -496,7 +506,14 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
                                 color: '#93c5fd',
                               }}
                             >
-                              BP: <strong>{enc.vitals.bp}</strong> mmHg
+                              BP:{' '}
+                              <strong>
+                                {enc.vitals.bp.systolic ?? '?'}/{enc.vitals.bp.diastolic ?? '?'}
+                              </strong>{' '}
+                              mmHg
+                              {enc.vitals.bp.systolic > 180 && (
+                                <span style={{ color: '#fca5a5', marginLeft: '4px' }}>⚠️ High</span>
+                              )}
                             </span>
                           )}
                           {enc.vitals.tempC !== undefined && enc.vitals.tempC !== null && (
@@ -561,21 +578,43 @@ export const ScanLookupPage = ({ onNavigateToRegister }) => {
                       {/* Symptoms Tags */}
                       {enc.symptoms && enc.symptoms.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                          {enc.symptoms.map((s, idx) => (
-                            <span
-                              key={idx}
-                              style={{
-                                background: 'rgba(13, 148, 136, 0.12)',
-                                border: '1px solid rgba(20, 184, 166, 0.25)',
-                                padding: '0.2rem 0.5rem',
-                                borderRadius: '4px',
-                                fontSize: '0.75rem',
-                                color: '#5eead4',
-                              }}
-                            >
-                              &bull; {s}
-                            </span>
-                          ))}
+                          {enc.symptoms.map((s, idx) => {
+                            // Resolve stored ID to English label; fall back to raw value for legacy data
+                            const label = SYMPTOM_LABEL_MAP[s] || s;
+                            return (
+                              <span
+                                key={idx}
+                                style={{
+                                  background: 'rgba(13, 148, 136, 0.12)',
+                                  border: '1px solid rgba(20, 184, 166, 0.25)',
+                                  padding: '0.2rem 0.5rem',
+                                  borderRadius: '4px',
+                                  fontSize: '0.75rem',
+                                  color: '#5eead4',
+                                }}
+                              >
+                                &bull; {label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Other Symptoms free-text (not parsed by triage) */}
+                      {enc.otherSymptoms && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                          <span
+                            style={{
+                              background: 'rgba(148, 163, 184, 0.08)',
+                              border: '1px solid rgba(148, 163, 184, 0.2)',
+                              padding: '0.2rem 0.5rem',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              color: '#94a3b8',
+                            }}
+                          >
+                            Other: {enc.otherSymptoms}
+                          </span>
                         </div>
                       )}
 

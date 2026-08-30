@@ -8,7 +8,9 @@ const {
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 
-// Create an encounter
+// POST /api/encounters — create encounter (facility + worker auto-stamped from token)
+// PRD §4: write access is facility-scoped (worker's own facility only)
+// PRD §5: no PUT/DELETE routes — encounters are append-only
 router.post(
   '/',
   protect,
@@ -16,10 +18,17 @@ router.post(
   createEncounter
 );
 
-// Get single encounter detail
-router.get('/:id', protect, getEncounterById);
+// GET /api/encounters?patient=:patientId — PRD §4 query-param form
+// PRD §4: cross-facility read — facilityScope middleware intentionally NOT applied
+router.get('/', protect, getPatientEncounters);
 
-// Get encounters by patient PHID
+// IMPORTANT: /patient/:phid must be declared BEFORE /:id
+// Express evaluates routes top-to-bottom; placing /:id first would swallow /patient/:phid.
+
+// GET /api/encounters/patient/:phid — PHID-based lookup (used by patientRoutes alias too)
 router.get('/patient/:phid', protect, getPatientEncounters);
+
+// GET /api/encounters/:id — single encounter detail
+router.get('/:id', protect, getEncounterById);
 
 module.exports = router;
