@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ScanLookupPage } from './pages/ScanLookupPage';
+import { PatientTimelinePage } from './pages/PatientTimelinePage';
 import { PatientRegisterPage } from './pages/PatientRegisterPage';
 import { PatientsListPage } from './pages/PatientsListPage';
 import { AdminFacilitiesPage } from './pages/AdminFacilitiesPage';
@@ -12,7 +13,8 @@ import { Activity } from 'lucide-react';
 
 export function App() {
   const { user, authChecking, fetchMe } = useAuthStore();
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'scan-lookup' | 'patient-register' | 'patients-list' | 'admin-facilities' | 'login' | 'register'
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'scan-lookup' | 'patient-timeline' | 'patient-register' | 'patients-list' | 'admin-facilities' | 'login' | 'register'
+  const [timelinePhid, setTimelinePhid] = useState(null); // PHID passed to PatientTimelinePage
 
   useEffect(() => {
     fetchMe();
@@ -27,6 +29,7 @@ export function App() {
       if (
         currentView === 'dashboard' ||
         currentView === 'scan-lookup' ||
+        currentView === 'patient-timeline' ||
         currentView === 'patient-register' ||
         currentView === 'patients-list' ||
         currentView === 'admin-facilities'
@@ -77,7 +80,23 @@ export function App() {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'scan-lookup':
-        return <ScanLookupPage onNavigateToRegister={() => setCurrentView('patient-register')} />;
+        return (
+          <ScanLookupPage
+            onNavigateToRegister={() => setCurrentView('patient-register')}
+            onNavigateToTimeline={(phid) => {
+              setTimelinePhid(phid);
+              setCurrentView('patient-timeline');
+            }}
+          />
+        );
+      case 'patient-timeline':
+        return (
+          <PatientTimelinePage
+            phid={timelinePhid}
+            onBack={() => setCurrentView('scan-lookup')}
+            onNavigateToScan={() => setCurrentView('scan-lookup')}
+          />
+        );
       case 'patient-register':
         return <PatientRegisterPage onNavigateToList={() => setCurrentView('patients-list')} />;
       case 'patients-list':

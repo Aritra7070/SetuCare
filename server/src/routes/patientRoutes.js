@@ -9,6 +9,7 @@ const {
   getPatients,
   getPatientById,
   updatePatient,
+  getPatientTimeline,
 } = require('../controllers/patientController');
 const { getPatientEncounters } = require('../controllers/encounterController');
 const { protect } = require('../middleware/auth');
@@ -25,8 +26,12 @@ router.get(
 // Cross-Facility Patient Lookup by PHID (Any authenticated user, bypasses facilityScope)
 router.get('/lookup/:phid', protect, lookupPatientByPHID);
 
-// Patient encounters list
+// Patient encounters list (PHID-based, used by encounterController alias)
 router.get('/:phid/encounters', protect, getPatientEncounters);
+
+// Step 6 — Longitudinal timeline: single round-trip, no facilityScope
+// PRD §3: any authenticated user; cross-facility read is the feature
+router.get('/:phid/timeline', protect, getPatientTimeline);
 
 // Explicit scan event audit logging
 router.post('/lookup/:phid/scan-log', protect, recordScanLog);

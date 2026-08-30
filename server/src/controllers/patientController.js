@@ -547,6 +547,73 @@ const updatePatient = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Patient longitudinal timeline — single round-trip for the Step 6 UI
+ * @route   GET /api/patients/:phid/timeline
+ * @access  Private (any authenticated user — PRD §3: no facilityScope applied)
+ *
+ * Returns patient demographics + every encounter across all facilities +
+ * pre-computed summary stats so the UI needs zero extra requests.
+ */
+const getPatientTimeline = async (req, res) => {
+  try {
+    const rawPhid = req.params.phid ? req.params.phid.trim() : '';
+
+    if (!rawPhid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid Patient Health ID (PHID)',
+      });
+    }
+
+    const patient = await Patient.findOne({
+      phid: new RegExp('^' + rawPhid + '$', 'i'),
+    }).populate('registeredAtFacility', 'name tier district state shortCode contactPhone');
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: `No patient record found for PHID '${rawPhid}'`,
+      });
+    }
+
+    // Fetch all encounters regardless of facility — cross-facility read is the feature
+    const encounters = await Encounter.find({ patient: patient._id })
+      .populate('facility', 'name tier district state shortCode')
+      .populate('worker', 'name role')
+      .sort({ createdAt: -1 }); // newest first — PRD §4
+
+    // Pre-compute summary stats so the UI has zero extra work
+    const distinctFacilityIds = new Set(
+      encounters
+        .map((e) => e.facility?._id?.toString())
+        .filter(Boolean)
+    );
+
+    const summary = {
+      totalEncounters: encounters.length,
+      facilitiesVisited: distinctFacilityIds.size,
+      firstEncounterDate: encounters.length > 0
+        ? encounters[encounters.length - 1].createdAt  // oldest (list is newest-first)
+        : null,
+    };
+
+    res.status(200).json({
+      success: true,
+      patient,
+      age: calculateAge(patient.dob),
+      encounters,
+      summary,
+    });
+  } catch (error) {
+    console.error('[Patient Controller] getPatientTimeline Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to retrieve patient timeline',
+    });
+  }
+};
+
 module.exports = {
   checkDuplicate,
   registerPatient,
@@ -556,5 +623,6 @@ module.exports = {
   getPatients,
   getPatientById,
   updatePatient,
+  getPatientTimeline,
   calculateAge,
 };
