@@ -1,8 +1,14 @@
 import axios from 'axios';
 
+// In development: Vite proxies /api → localhost:5000 (vite.config.js)
+// In production:  VITE_API_URL is set in Vercel dashboard to your Railway backend URL
+const baseURL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
-  withCredentials: true, // Crucial for sending and receiving httpOnly cookies
+  baseURL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
