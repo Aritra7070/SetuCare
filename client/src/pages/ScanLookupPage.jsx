@@ -74,10 +74,15 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
         setLookupResult(res.data);
       }
     } catch (err) {
-      if (err.status === 404 || err.response?.status === 404) {
+      const status = err.response?.status || err.status;
+      if (status === 404) {
         setNotFoundPhid(cleanPhid);
+      } else if (status === 401) {
+        setLookupError('Session expired — please log in again.');
       } else {
-        setLookupError(err.message || 'Error looking up patient record');
+        setLookupError(
+          err.response?.data?.message || err.message || 'Error looking up patient record'
+        );
       }
     } finally {
       setLoading(false);
@@ -394,13 +399,15 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                         key={p._id}
                         type="button"
                         onClick={() => { setInputPhid(p.phid); performLookup(p.phid, 'manual_entry'); }}
+                        disabled={loading}
                         style={{
                           background: 'rgba(15,23,42,0.7)', border: '1px solid var(--border-subtle)',
                           padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)',
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           color: '#f8fafc', textAlign: 'left', transition: 'all 0.2s ease',
+                          opacity: loading ? 0.6 : 1,
                         }}
-                        onMouseOver={(e) => (e.currentTarget.style.borderColor = '#14b8a6')}
+                        onMouseOver={(e) => { if (!loading) e.currentTarget.style.borderColor = '#14b8a6'; }}
                         onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
                       >
                         <div>
@@ -410,7 +417,7 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                           </div>
                         </div>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: '#22d3ee' }}>
-                          {p.phid}
+                          {loading && inputPhid === p.phid ? 'Loading…' : p.phid}
                         </span>
                       </button>
                     ))}
