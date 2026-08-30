@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Share2,
 } from 'lucide-react';
+import { getLanguageLabel } from '../utils/languages';
 
 export const PatientCardModal = ({ patient, qrCodeDataUrl, age, onClose }) => {
   const [copied, setCopied] = useState(false);
@@ -280,8 +281,8 @@ export const PatientCardModal = ({ patient, qrCodeDataUrl, age, onClose }) => {
 
                 <div>
                   <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Language</div>
-                  <div style={{ fontWeight: '700', fontSize: '0.85rem', textTransform: 'uppercase' }}>
-                    {patient.preferredLanguage || 'MR'}
+                  <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>
+                    {getLanguageLabel(patient.preferredLanguage || 'mr')}
                   </div>
                 </div>
               </div>
