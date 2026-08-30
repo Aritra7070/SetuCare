@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import { useAuthStore } from '../stores/authStore';
+import { useSocket } from '../hooks/useSocket';
 import { EncounterCreateModal } from '../components/EncounterCreateModal';
 import { ReferralCreateModal, REFERRAL_STATUS_CONFIG } from '../components/ReferralCreateModal';
 import { SYMPTOM_LABEL_MAP } from '../utils/symptomVocabulary';
@@ -407,11 +408,14 @@ function EncounterCard({ enc, patient, onTriageRun, onReferred }) {
 // ---------------------------------------------------------------------------
 export const PatientTimelinePage = ({ phid, onBack }) => {
   const { user } = useAuthStore();
+  const socket   = useSocket();
 
-  const [data,           setData]           = useState(null);
-  const [loading,        setLoading]        = useState(true);
-  const [error,          setError]          = useState(null);
+  const [data,               setData]               = useState(null);
+  const [loading,            setLoading]            = useState(true);
+  const [error,              setError]              = useState(null);
   const [encounterModalOpen, setEncounterModalOpen] = useState(false);
+  // Live notification toasts — { id, message, type }
+  const [notifications,      setNotifications]      = useState([]);
 
   // Optimistic overrides keyed by encounter _id
   // Shape: { [encId]: { triageResult?, referral? } }
@@ -432,6 +436,76 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
   }, [phid]);
 
   useEffect(() => { fetchTimeline(); }, [fetchTimeline]);
+
+  // ── Socket.IO: join patient room when this timeline opens ──
+  useEffect(() => {
+    if (!socket || !phid || !data?.patient?._id) return;
+    const patientId = data.patient._id;
+    socket.emit('join:patient', { patientId });
+    return () => {
+      socket.emit('leave:patient', { patientId });
+    };
+  }, [socket, phid, data?.patient?._id]);
+
+  // ── Socket.IO: live referral chip updates ──
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleStatusUpdate = (payload) => {
+      // payload: { referralId, patientId, status, toFacility, updatedAt }
+      // Update the referral chip on the matching encounter optimistically
+      setOverrides(prev => {
+        const next = { ...prev };
+        // Walk every encounter override looking for the matching referral
+        // We also need to search the base data for the encounter that holds this referral
+        for (const encId of Object.keys(next)) {
+          if (next[encId]?.referral?._id?.toString() === payload.referralId) {
+            next[encId] = {
+              ...next[encId],
+              referral: { ...next[encId].referral, status: payload.status },
+            };
+            return next;
+          }
+        }
+        return next;
+      });
+
+      // Also update base data encounters that haven't been overridden yet
+      setData(prev => {
+        if (!prev) return prev;
+        const updatedEncounters = prev.encounters.map(enc => {
+          if (enc.referral?._id?.toString() === payload.referralId) {
+            return { ...enc, referral: { ...enc.referral, status: payload.status } };
+          }
+          return enc;
+        });
+        return { ...prev, encounters: updatedEncounters };
+      });
+    };
+
+    socket.on('referral:statusUpdated', handleStatusUpdate);
+    return () => { socket.off('referral:statusUpdated', handleStatusUpdate); };
+  }, [socket]);
+
+  // ── Socket.IO: incoming notifications (referral closed etc.) ──
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNotification = (notif) => {
+      const toastId = notif._id || Date.now().toString();
+      setNotifications(prev => [
+        { id: toastId, message: notif.message, type: notif.type },
+        ...prev.slice(0, 4), // keep at most 5 toasts
+      ]);
+      // Auto-dismiss after 8 s
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== toastId));
+      }, 8000);
+    };
+
+    socket.on('notification:new', handleNotification);
+    return () => { socket.off('notification:new', handleNotification); };
+  }, [socket]);
 
   const handleEncounterCreated = () => {
     setEncounterModalOpen(false);
@@ -643,6 +717,66 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
           onSuccess={handleEncounterCreated}
         />
       )}
+
+      {/* ── Live notification toasts (Step 9) ── */}
+      {notifications.length > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 200,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            maxWidth: '380px',
+            pointerEvents: 'none',
+          }}
+        >
+          {notifications.map((n) => (
+            <div
+              key={n.id}
+              style={{
+                background: 'rgba(10,15,29,0.97)',
+                border: '1px solid rgba(20,184,166,0.45)',
+                borderLeft: '3px solid #14b8a6',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.85rem 1rem',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.6rem',
+                pointerEvents: 'auto',
+                animation: 'slideInRight 0.35s cubic-bezier(0.23,1,0.32,1)',
+              }}
+            >
+              <CheckCircle2 size={16} color="#14b8a6" style={{ flexShrink: 0, marginTop: '1px' }} />
+              <div>
+                <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#5eead4', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Referral Update
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#e2e8f0', lineHeight: 1.45 }}>
+                  {n.message}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNotifications(prev => prev.filter(x => x.id !== n.id))}
+                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '0', marginLeft: 'auto', flexShrink: 0 }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(24px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
     </div>
   );
 };

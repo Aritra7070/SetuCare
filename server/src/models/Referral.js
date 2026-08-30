@@ -42,6 +42,12 @@ const referralSchema = new mongoose.Schema(
       ref: 'Facility',
       required: [true, 'Referral requires a destination facility'],
     },
+    // PRD §4 / Step 9: the worker who created the referral.
+    // Used to target the closed-referral notification back to them.
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
     reason: {
       type: String,
       trim: true,

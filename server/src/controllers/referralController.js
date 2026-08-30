@@ -2,6 +2,8 @@ const Referral = require('../models/Referral');
 const Encounter = require('../models/Encounter');
 const Patient = require('../models/Patient');
 const Facility = require('../models/Facility');
+const Notification = require('../models/Notification');
+const { getIO } = require('../socket');
 
 /**
  * @desc    Create a new referral from a source encounter
@@ -88,6 +90,7 @@ const createReferral = async (req, res) => {
       sourceEncounter: encounter._id,
       fromFacility: fromFacilityId,
       toFacility: toFacility._id,
+      createdBy: req.user._id,           // Step 9: needed to target closed-notification
       reason: reason.trim(),
       status: 'created',
       statusHistory: [
@@ -174,4 +177,170 @@ const getPatientReferrals = async (req, res) => {
   }
 };
 
-module.exports = { createReferral, getReferralById, getPatientReferrals };
+/**
+ * @desc    Advance a referral's status by exactly one step
+ * @route   PATCH /api/referrals/:id/status
+ * @access  Private (medical_officer, specialist) — receiving facility only
+ *
+ * Transition rules (PRD §2):
+ *   created → acknowledged → seen → closed (strict one-step, no skipping)
+ *   Only req.user.facility === referral.toFacility may transition
+ *   closed requires outcomeNotes
+ *
+ * On every transition: appends statusHistory, emits referral:statusUpdated
+ *   to patient:<patientId> room (live chip update on any timeline viewer)
+ * On closed: also creates a Notification for createdBy and emits
+ *   notification:new to user:<createdBy> room
+ */
+const VALID_TRANSITIONS = {
+  created:      'acknowledged',
+  acknowledged: 'seen',
+  seen:         'closed',
+};
+
+const updateReferralStatus = async (req, res) => {
+  try {
+    const { status: newStatus, outcomeNotes } = req.body;
+
+    if (!newStatus) {
+      return res.status(400).json({ success: false, message: 'New status is required.' });
+    }
+
+    // ── Fetch referral with full population needed for emit payload ──
+    const referral = await Referral.findById(req.params.id)
+      .populate('patient',         'phid name')
+      .populate('fromFacility',    'name tier shortCode')
+      .populate('toFacility',      'name tier shortCode')
+      .populate('createdBy',       'name role');
+
+    if (!referral) {
+      return res.status(404).json({ success: false, message: 'Referral not found.' });
+    }
+
+    // ── Only the receiving facility may transition status ──
+    const userFacilityId = (req.user.facility?._id || req.user.facility)?.toString();
+    const toFacilityId   = referral.toFacility._id?.toString() || referral.toFacility?.toString();
+
+    if (!userFacilityId || userFacilityId !== toFacilityId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only a user at the receiving facility can update this referral status.',
+      });
+    }
+
+    // ── Validate transition is exactly one step forward ──
+    const expectedNext = VALID_TRANSITIONS[referral.status];
+    if (!expectedNext) {
+      return res.status(400).json({
+        success: false,
+        message: `Referral is already in its terminal state: '${referral.status}'.`,
+      });
+    }
+    if (newStatus !== expectedNext) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid transition. Current status is '${referral.status}'; next allowed status is '${expectedNext}'.`,
+        currentStatus: referral.status,
+        allowedNext:   expectedNext,
+      });
+    }
+
+    // ── closed requires outcomeNotes ──
+    if (newStatus === 'closed') {
+      if (!outcomeNotes || !outcomeNotes.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'outcomeNotes is required when closing a referral.',
+        });
+      }
+      referral.outcomeNotes = outcomeNotes.trim();
+    }
+
+    // ── Apply transition ──
+    referral.status = newStatus;
+    referral.statusHistory.push({
+      status:    newStatus,
+      timestamp: new Date(),
+      updatedBy: req.user._id,
+    });
+
+    await referral.save();
+
+    // ── Build a clean payload for socket emission ──
+    // Only the fields the client needs to update the chip — keeps the event small.
+    const chipPayload = {
+      referralId:  referral._id.toString(),
+      patientId:   referral.patient._id.toString(),
+      status:      referral.status,
+      toFacility: {
+        name:  referral.toFacility.name,
+        tier:  referral.toFacility.tier,
+        shortCode: referral.toFacility.shortCode,
+      },
+      updatedAt:   new Date().toISOString(),
+    };
+
+    // ── Emit to patient room — updates live timeline chips for anyone watching ──
+    try {
+      const io = getIO();
+      io.to(`patient:${referral.patient._id}`).emit('referral:statusUpdated', chipPayload);
+    } catch (socketErr) {
+      // Don't fail the HTTP response if Socket.IO isn't ready (e.g. test environment)
+      console.warn('[Referral Controller] Socket emit skipped:', socketErr.message);
+    }
+
+    // ── On closed: create Notification + emit to referring worker ──
+    if (newStatus === 'closed' && referral.createdBy) {
+      const createdById = referral.createdBy._id?.toString() || referral.createdBy.toString();
+      const notifMessage =
+        `Your referral for ${referral.patient.name} to ` +
+        `${referral.toFacility.name} has been closed. ` +
+        `Outcome: ${referral.outcomeNotes}`;
+
+      // Fire-and-forget — don't block the response on notification save
+      Notification.create({
+        recipientUser: createdById,
+        type:          'referral_closed',
+        referral:      referral._id,
+        patient:       referral.patient._id,
+        message:       notifMessage,
+        read:          false,
+      }).then((notif) => {
+        try {
+          const io = getIO();
+          io.to(`user:${createdById}`).emit('notification:new', {
+            _id:       notif._id.toString(),
+            type:      notif.type,
+            message:   notif.message,
+            referralId: referral._id.toString(),
+            patientId:  referral.patient._id.toString(),
+            patientName: referral.patient.name,
+            createdAt: notif.createdAt,
+            read:      false,
+          });
+        } catch (e) {
+          console.warn('[Referral Controller] Notification socket emit skipped:', e.message);
+        }
+      }).catch((e) => {
+        console.error('[Referral Controller] Failed to save Notification:', e.message);
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Referral status updated to '${newStatus}'`,
+      referral: {
+        _id:            referral._id,
+        status:         referral.status,
+        outcomeNotes:   referral.outcomeNotes,
+        statusHistory:  referral.statusHistory,
+        updatedAt:      new Date(),
+      },
+    });
+  } catch (error) {
+    console.error('[Referral Controller] UpdateStatus Error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to update referral status.' });
+  }
+};
+
+module.exports = { createReferral, getReferralById, getPatientReferrals, updateReferralStatus };
