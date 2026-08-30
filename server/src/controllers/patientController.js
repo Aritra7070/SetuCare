@@ -1,6 +1,7 @@
 const Patient = require('../models/Patient');
 const Facility = require('../models/Facility');
 const Encounter = require('../models/Encounter');
+const Referral = require('../models/Referral');
 const ScanLog = require('../models/ScanLog');
 const { generateUniquePHID } = require('../utils/phidGenerator');
 const { generateQRCodeDataUrl } = require('../utils/qrGenerator');
@@ -583,6 +584,30 @@ const getPatientTimeline = async (req, res) => {
       .populate('worker', 'name role')
       .sort({ createdAt: -1 }); // newest first — PRD §4
 
+    // PRD §5 (Step 8): join referral status chip onto each encounter in one extra query
+    // rather than N+1 individual lookups.
+    const encounterIds = encounters.map((e) => e._id);
+    const referrals = await Referral.find({ sourceEncounter: { $in: encounterIds } })
+      .populate('toFacility', 'name tier district shortCode')
+      .lean();
+
+    // Build a lookup map: encounterObjectId.toString() → referral summary
+    const referralByEncounter = {};
+    for (const ref of referrals) {
+      referralByEncounter[ref.sourceEncounter.toString()] = {
+        _id: ref._id,
+        status: ref.status,
+        toFacility: ref.toFacility,
+        createdAt: ref.createdAt,
+      };
+    }
+
+    // Attach referral chip data to each encounter (null when no referral exists)
+    const encountersWithReferral = encounters.map((enc) => ({
+      ...enc.toObject(),
+      referral: referralByEncounter[enc._id.toString()] || null,
+    }));
+
     // Pre-compute summary stats so the UI has zero extra work
     const distinctFacilityIds = new Set(
       encounters
@@ -602,7 +627,7 @@ const getPatientTimeline = async (req, res) => {
       success: true,
       patient,
       age: calculateAge(patient.dob),
-      encounters,
+      encounters: encountersWithReferral,
       summary,
     });
   } catch (error) {

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "seed:facilities": "node src/seed/facilities.js"
+    "seed:facilities": "node src/seed/facilities.js",
+    "seed:users": "node src/seed/users.js",
+    "seed": "node src/seed/index.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

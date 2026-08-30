@@ -278,6 +278,8 @@ const triageEncounter = async (req, res) => {
       rationale,
       suggestedRouting,
       suggestedFacility: suggestedFacility?._id || null,
+      // tierSkipped: true when emergency logic walked past intermediate tiers
+      tierSkipped: riskLevel === 'emergency' && suggestedFacility != null,
       scoredAt: new Date(),
     };
 
@@ -307,6 +309,7 @@ const triageEncounter = async (req, res) => {
               shortCode: suggestedFacility.shortCode,
             }
           : null,
+        tierSkipped: riskLevel === 'emergency' && suggestedFacility != null,
         scoredAt: encounter.triageResult.scoredAt,
       },
     });

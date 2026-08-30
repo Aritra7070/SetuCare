@@ -41,6 +41,7 @@ export const LoginPage = ({ onSwitchToRegister }) => {
           <div className="form-group">
             <label className="form-label">Work Email Address</label>
             <div style={{ position: 'relative' }}>
+              <Mail size={16} style={{ position: 'absolute', left: '0.9rem', top: '0.9rem', color: '#94a3b8' }} />
               <input
                 type="email"
                 required
@@ -48,6 +49,7 @@ export const LoginPage = ({ onSwitchToRegister }) => {
                 placeholder="name@setucare.in"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                style={{ paddingLeft: '2.6rem' }}
               />
             </div>
           </div>
@@ -55,6 +57,7 @@ export const LoginPage = ({ onSwitchToRegister }) => {
           <div className="form-group">
             <label className="form-label">Password</label>
             <div style={{ position: 'relative' }}>
+              <Lock size={16} style={{ position: 'absolute', left: '0.9rem', top: '0.9rem', color: '#94a3b8' }} />
               <input
                 type="password"
                 required
@@ -62,6 +65,7 @@ export const LoginPage = ({ onSwitchToRegister }) => {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                style={{ paddingLeft: '2.6rem' }}
               />
             </div>
           </div>
@@ -93,7 +97,6 @@ export const LoginPage = ({ onSwitchToRegister }) => {
           </button>
         </div>
 
-        {/* Demo Fast Fill Section */}
         <div className="demo-accounts">
           <div className="demo-title">
             <Sparkles size={13} color="#14b8a6" />

@@ -13,6 +13,7 @@ const authRoutes = require('./routes/authRoutes');
 const facilityRoutes = require('./routes/facilityRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const encounterRoutes = require('./routes/encounterRoutes');
+const referralRoutes = require('./routes/referralRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -66,6 +67,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/facilities', facilityRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/encounters', encounterRoutes);
+app.use('/api/referrals', referralRoutes);
 
 // 404 Handler
 app.use('*', (req, res) => {

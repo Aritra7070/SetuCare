@@ -55,23 +55,28 @@ const encounterSchema = new mongoose.Schema(
         type: String,
         enum: ['routine', 'urgent', 'emergency'],
       },
-      // Human-readable explanation — always shown alongside the badge (PRD §5)
+      // Human-readable explanation — always shown alongside the badge
       rationale: {
         type: String,
         trim: true,
       },
-      // Display string: "Nashik District Hospital (District Hospital)"
+      // Display string kept for fast rendering: "Nashik District Hospital (district hospital)"
       suggestedRouting: {
         type: String,
         trim: true,
       },
-      // Facility ObjectId for Step 8 referral pre-fill — null when routine
+      // Facility ObjectId — Step 8 referral form pre-fills from this
       suggestedFacility: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Facility',
         default: null,
       },
-      // ISO timestamp of when triage was last run — idempotent re-runs overwrite
+      // PRD §2: true when emergency routing skipped tiers straight to district_hospital
+      tierSkipped: {
+        type: Boolean,
+        default: false,
+      },
+      // ISO timestamp of when triage was last run
       scoredAt: {
         type: Date,
       },

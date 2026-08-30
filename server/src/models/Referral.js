@@ -30,6 +30,7 @@ const referralSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Encounter',
       required: [true, 'Referral requires a source encounter reference'],
+      unique: true, // PRD §3: one referral per encounter, enforced at DB layer
     },
     fromFacility: {
       type: mongoose.Schema.Types.ObjectId,

@@ -19,7 +19,7 @@ const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
   );
 
   const cookieOptions = {
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -32,7 +32,7 @@ const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
     .json({
       success: true,
       message,
-      token, // Also returned in body for flexible client debugging/tests
+      token,
       user: {
         _id: user._id,
         name: user.name,
@@ -207,7 +207,6 @@ const logout = async (req, res) => {
  */
 const getMe = async (req, res) => {
   try {
-    // req.user was already populated in protect middleware
     res.status(200).json({
       success: true,
       user: req.user,
@@ -221,11 +220,6 @@ const getMe = async (req, res) => {
   }
 };
 
-/**
- * @desc    Test role-based access control
- * @route   GET /api/auth/test-role-guard
- * @access  Private (Protected by roleGuard)
- */
 const testRoleGuard = async (req, res) => {
   res.status(200).json({
     success: true,
@@ -238,11 +232,6 @@ const testRoleGuard = async (req, res) => {
   });
 };
 
-/**
- * @desc    Test facility-scoped access control
- * @route   GET /api/auth/test-facility-scope
- * @access  Private (Protected by facilityScope)
- */
 const testFacilityScope = async (req, res) => {
   const simulatedFilter = req.applyFacilityScope({ status: 'active' });
 
