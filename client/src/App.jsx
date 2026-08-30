@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from './stores/authStore';
 import { Navbar } from './components/Navbar';
+import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -13,8 +14,8 @@ import { Activity } from 'lucide-react';
 
 export function App() {
   const { user, authChecking, fetchMe } = useAuthStore();
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'scan-lookup' | 'patient-timeline' | 'patient-register' | 'patients-list' | 'admin-facilities' | 'login' | 'register'
-  const [timelinePhid, setTimelinePhid] = useState(null); // PHID passed to PatientTimelinePage
+  const [currentView, setCurrentView] = useState('landing'); // 'landing' | 'dashboard' | 'scan-lookup' | 'patient-timeline' | 'patient-register' | 'patients-list' | 'admin-facilities' | 'login' | 'register'
+  const [timelinePhid, setTimelinePhid] = useState(null);
 
   useEffect(() => {
     fetchMe();
@@ -22,10 +23,12 @@ export function App() {
 
   useEffect(() => {
     if (user) {
-      if (currentView === 'login' || currentView === 'register') {
+      // Authenticated — skip landing/login/register, go straight to dashboard
+      if (['landing', 'login', 'register'].includes(currentView)) {
         setCurrentView('dashboard');
       }
     } else {
+      // Not authenticated — protected views redirect to landing
       if (
         currentView === 'dashboard' ||
         currentView === 'scan-lookup' ||
@@ -34,7 +37,7 @@ export function App() {
         currentView === 'patients-list' ||
         currentView === 'admin-facilities'
       ) {
-        setCurrentView('login');
+        setCurrentView('landing');
       }
     }
   }, [user]);
@@ -118,29 +121,39 @@ export function App() {
 
   return (
     <div className="app-container">
-      <Navbar currentView={currentView} setCurrentView={setCurrentView} />
-
-      {user ? (
-        renderCurrentView()
-      ) : currentView === 'register' ? (
-        <RegisterPage onSwitchToLogin={() => setCurrentView('login')} />
+      {/* Landing page is fullscreen — no Navbar or footer */}
+      {!user && currentView === 'landing' ? (
+        <LandingPage onGetStarted={() => setCurrentView('register')} />
       ) : (
-        <LoginPage onSwitchToRegister={() => setCurrentView('register')} />
-      )}
+        <>
+          <Navbar currentView={currentView} setCurrentView={setCurrentView} />
 
-      <footer
-        className="no-print"
-        style={{
-          textAlign: 'center',
-          padding: '1.5rem',
-          color: 'var(--text-muted)',
-          fontSize: '0.8rem',
-          borderTop: '1px solid var(--border-subtle)',
-          background: 'rgba(11, 17, 32, 0.9)',
-        }}
-      >
-        SetuCare (सेतुकेअर) &bull; Phase 1 & 2 &bull; Stepped-Care Clinical Navigation & Referral System
-      </footer>
+          {user ? (
+            renderCurrentView()
+          ) : currentView === 'register' ? (
+            <RegisterPage onSwitchToLogin={() => setCurrentView('login')} />
+          ) : (
+            <LoginPage
+              onSwitchToRegister={() => setCurrentView('register')}
+              onBack={() => setCurrentView('landing')}
+            />
+          )}
+
+          <footer
+            className="no-print"
+            style={{
+              textAlign: 'center',
+              padding: '1.5rem',
+              color: 'var(--text-muted)',
+              fontSize: '0.8rem',
+              borderTop: '1px solid var(--border-subtle)',
+              background: 'rgba(11, 17, 32, 0.9)',
+            }}
+          >
+            SetuCare (सेतुकेअर) &bull; Phase 1 & 2 &bull; Stepped-Care Clinical Navigation & Referral System
+          </footer>
+        </>
+      )}
     </div>
   );
 }
