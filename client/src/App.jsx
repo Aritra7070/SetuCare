@@ -161,7 +161,7 @@ export function App() {
               background: 'rgba(11, 17, 32, 0.9)',
             }}
           >
-            SetuCare (सेतुकेअर) &bull; Phase 1 & 2 &bull; Stepped-Care Clinical Navigation & Referral System
+            SetuCare &bull; Stepped-Care Clinical Navigation &amp; Referral System
           </footer>
         </>
       )}

@@ -422,17 +422,7 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                       </button>
                     ))}
 
-                    <button
-                      type="button"
-                      onClick={() => performLookup('MH-NSK-SC01-000000', 'manual_entry')}
-                      style={{
-                        background: 'rgba(244,63,94,0.06)', border: '1px dashed rgba(244,63,94,0.3)',
-                        padding: '0.45rem 0.75rem', borderRadius: 'var(--radius-sm)',
-                        color: '#fca5a5', fontSize: '0.78rem', textAlign: 'center',
-                      }}
-                    >
-                      ⚠️ Test Invalid PHID Scan (404 State)
-                    </button>
+
                   </div>
                 </div>
               )}
