@@ -10,11 +10,12 @@ import { PatientTimelinePage } from './pages/PatientTimelinePage';
 import { PatientRegisterPage } from './pages/PatientRegisterPage';
 import { PatientsListPage } from './pages/PatientsListPage';
 import { AdminFacilitiesPage } from './pages/AdminFacilitiesPage';
+import { ReferralInboxPage } from './pages/ReferralInboxPage';
 import { Activity } from 'lucide-react';
 
 export function App() {
   const { user, authChecking, fetchMe } = useAuthStore();
-  const [currentView, setCurrentView] = useState('landing'); // 'landing' | 'dashboard' | 'scan-lookup' | 'patient-timeline' | 'patient-register' | 'patients-list' | 'admin-facilities' | 'login' | 'register'
+  const [currentView, setCurrentView] = useState('landing'); // 'landing' | 'dashboard' | 'scan-lookup' | 'patient-timeline' | 'patient-register' | 'patients-list' | 'admin-facilities' | 'referral-inbox' | 'login' | 'register'
   const [timelinePhid, setTimelinePhid] = useState(null);
 
   useEffect(() => {
@@ -35,7 +36,8 @@ export function App() {
         currentView === 'patient-timeline' ||
         currentView === 'patient-register' ||
         currentView === 'patients-list' ||
-        currentView === 'admin-facilities'
+        currentView === 'admin-facilities' ||
+        currentView === 'referral-inbox'
       ) {
         setCurrentView('landing');
       }
@@ -98,6 +100,15 @@ export function App() {
             phid={timelinePhid}
             onBack={() => setCurrentView('scan-lookup')}
             onNavigateToScan={() => setCurrentView('scan-lookup')}
+          />
+        );
+      case 'referral-inbox':
+        return (
+          <ReferralInboxPage
+            onOpenTimeline={(phid) => {
+              setTimelinePhid(phid);
+              setCurrentView('patient-timeline');
+            }}
           />
         );
       case 'patient-register':

@@ -109,6 +109,25 @@ const createReferral = async (req, res) => {
       message: `Referral created — sent to ${toFacility.name}`,
       referral: populated,
     });
+
+    // ── Emit to receiving facility's inbox room (Step 10) ──
+    // Fire after response so the HTTP client isn't blocked.
+    try {
+      const io = getIO();
+      io.to(`facility:${toFacility._id}`).emit('referral:created', {
+        referralId:   populated._id.toString(),
+        patientName:  patient.name,
+        patientPhid:  patient.phid,
+        patientId:    patient._id.toString(),
+        fromFacility: { name: populated.fromFacility?.name, tier: populated.fromFacility?.tier },
+        reason:       populated.reason,
+        riskLevel:    encounter.triageResult?.riskLevel || null,
+        createdAt:    populated.createdAt,
+        status:       'created',
+      });
+    } catch (e) {
+      console.warn('[Referral Controller] facility emit skipped on create:', e.message);
+    }
   } catch (error) {
     // Mongoose duplicate key on sourceEncounter unique index
     if (error.code === 11000 && error.keyPattern?.sourceEncounter) {
@@ -284,8 +303,10 @@ const updateReferralStatus = async (req, res) => {
     try {
       const io = getIO();
       io.to(`patient:${referral.patient._id}`).emit('referral:statusUpdated', chipPayload);
+      // Step 10: also notify both facilities' inbox rooms
+      io.to(`facility:${referral.toFacility._id}`).emit('referral:statusUpdated', chipPayload);
+      io.to(`facility:${referral.fromFacility._id}`).emit('referral:statusUpdated', chipPayload);
     } catch (socketErr) {
-      // Don't fail the HTTP response if Socket.IO isn't ready (e.g. test environment)
       console.warn('[Referral Controller] Socket emit skipped:', socketErr.message);
     }
 
@@ -343,4 +364,115 @@ const updateReferralStatus = async (req, res) => {
   }
 };
 
-module.exports = { createReferral, getReferralById, getPatientReferrals, updateReferralStatus };
+/**
+ * @desc    Get incoming referrals for the logged-in user's facility (inbox)
+ * @route   GET /api/referrals/inbox?status=&riskLevel=
+ * @access  Private (medical_officer, specialist, admin)
+ *
+ * Priority sort (PRD §3 — the anti-delay feature):
+ *   1. created (unacknowledged) before acknowledged/seen
+ *   2. Within same status: emergency > urgent > routine/none
+ *   3. Within same status+risk: oldest first (longest waiting surfaces first)
+ *
+ * Overdue thresholds (adjustable constants at top of function):
+ *   emergency — flagged after 30 min unacknowledged
+ *   urgent    — flagged after 4 h
+ *   routine   — flagged after 24 h
+ */
+const getInbox = async (req, res) => {
+  // ── Overdue thresholds in milliseconds ──
+  const OVERDUE_MS = {
+    emergency: 30 * 60 * 1000,       // 30 minutes
+    urgent:    4 * 60 * 60 * 1000,   // 4 hours
+    routine:   24 * 60 * 60 * 1000,  // 24 hours
+    none:      24 * 60 * 60 * 1000,  // no triage → treat as routine
+  };
+
+  try {
+    const facilityId = req.user.facility?._id || req.user.facility;
+    if (!facilityId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Your account has no assigned facility. Cannot load inbox.',
+      });
+    }
+
+    const { status: statusFilter, riskLevel: riskFilter } = req.query;
+
+    // Build Mongoose filter
+    const filter = { toFacility: facilityId };
+
+    if (statusFilter === 'closed') {
+      filter.status = 'closed';
+    } else if (statusFilter === 'in_progress') {
+      filter.status = { $in: ['acknowledged', 'seen'] };
+    } else if (statusFilter) {
+      filter.status = statusFilter;
+    } else {
+      // Default: exclude closed — show the working list only
+      filter.status = { $in: ['created', 'acknowledged', 'seen'] };
+    }
+
+    const referrals = await Referral.find(filter)
+      .populate('patient',         'phid name dob gender')
+      .populate('fromFacility',    'name tier district shortCode')
+      .populate('toFacility',      'name tier shortCode')
+      .populate('createdBy',       'name role')
+      .populate({
+        path:   'sourceEncounter',
+        select: 'encounterType createdAt triageResult vitals symptoms',
+      })
+      .lean();  // lean() for fast JS manipulation below
+
+    // ── Status priority map (lower number = higher priority) ──
+    const STATUS_PRIORITY = { created: 0, acknowledged: 1, seen: 2, closed: 3 };
+    const RISK_PRIORITY   = { emergency: 0, urgent: 1, routine: 2 };
+
+    const now = Date.now();
+
+    // ── Annotate with overdue flag + derived riskLevel, then sort ──
+    const annotated = referrals
+      .filter(r => {
+        if (!riskFilter) return true;
+        const rl = r.sourceEncounter?.triageResult?.riskLevel || 'none';
+        return rl === riskFilter;
+      })
+      .map(r => {
+        const riskLevel = r.sourceEncounter?.triageResult?.riskLevel || null;
+        const rlKey     = riskLevel || 'none';
+        const threshold = OVERDUE_MS[rlKey] ?? OVERDUE_MS.none;
+        const ageMs     = now - new Date(r.createdAt).getTime();
+        const isOverdue = r.status === 'created' && ageMs > threshold;
+        const overdueByMs = isOverdue ? ageMs - threshold : 0;
+
+        return { ...r, riskLevel, isOverdue, overdueByMs, ageMs };
+      })
+      .sort((a, b) => {
+        // 1. Status priority
+        const sp = (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9);
+        if (sp !== 0) return sp;
+        // 2. Risk priority (emergency first)
+        const rp = (RISK_PRIORITY[a.riskLevel] ?? 2) - (RISK_PRIORITY[b.riskLevel] ?? 2);
+        if (rp !== 0) return rp;
+        // 3. Oldest first (longest waiting)
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
+
+    res.status(200).json({
+      success: true,
+      count:   annotated.length,
+      referrals: annotated,
+    });
+  } catch (error) {
+    console.error('[Referral Controller] GetInbox Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to load inbox.' });
+  }
+};
+
+module.exports = {
+  createReferral,
+  getReferralById,
+  getPatientReferrals,
+  updateReferralStatus,
+  getInbox,
+};

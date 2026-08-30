@@ -22,6 +22,7 @@ import {
   Layers,
   Send,
   ArrowRight,
+  Eye,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -137,14 +138,21 @@ function VitalPill({ label, value, color = 'neutral' }) {
 // Props:
 //   enc          — encounter object (may have .referral chip attached by timeline endpoint)
 //   patient      — patient object { _id, name, phid }
-//   onTriageRun  — (encounterId, triageResult) => void
-//   onReferred   — (encounterId, referral) => void
+//   onTriageRun     — (encounterId, triageResult) => void
+//   onReferred      — (encounterId, referral) => void
+//   onStatusUpdated — (encounterId, newStatus, outcomeNotes?) => void  [Step 10]
 // ---------------------------------------------------------------------------
-function EncounterCard({ enc, patient, onTriageRun, onReferred }) {
+function EncounterCard({ enc, patient, onTriageRun, onReferred, onStatusUpdated }) {
+  const { user }       = useAuthStore();
   const [notesExpanded,  setNotesExpanded]  = useState(false);
   const [triageLoading,  setTriageLoading]  = useState(false);
   const [triageError,    setTriageError]    = useState(null);
   const [referralOpen,   setReferralOpen]   = useState(false);
+  // Step 10 — inline status actions (Mark Seen / Close)
+  const [statusLoading,  setStatusLoading]  = useState(false);
+  const [statusError,    setStatusError]    = useState(null);
+  const [closeFormOpen,  setCloseFormOpen]  = useState(false);
+  const [outcomeNotes,   setOutcomeNotes]   = useState('');
 
   const tier    = tierConfig(enc.facility?.tier);
   const typeCfg = ENCOUNTER_TYPE_CONFIG[enc.encounterType] || ENCOUNTER_TYPE_CONFIG.walk_in;
@@ -155,6 +163,36 @@ function EncounterCard({ enc, patient, onTriageRun, onReferred }) {
     enc.vitals?.spo2  != null || enc.vitals?.weightKg != null;
 
   const hasReferral = Boolean(enc.referral);
+
+  // Is the current user at the receiving facility for this referral?
+  const userFacilityId = user?.facility?._id?.toString() || user?.facility?.toString();
+  const toFacilityId   = enc.referral?.toFacility?._id?.toString()
+    || enc.referral?.toFacility?.toString();
+  const isReceivingFacility = hasReferral && userFacilityId && toFacilityId
+    && userFacilityId === toFacilityId;
+  const canAct = isReceivingFacility
+    && ['medical_officer', 'specialist', 'admin'].includes(user?.role)
+    && enc.referral?.status !== 'closed';
+
+  const handleStatusTransition = async (newStatus, notes) => {
+    setStatusLoading(true);
+    setStatusError(null);
+    try {
+      await api.patch(`/referrals/${enc.referral._id}/status`, {
+        status: newStatus,
+        ...(notes && { outcomeNotes: notes }),
+      });
+      onStatusUpdated?.(enc._id, newStatus, notes);
+      if (newStatus === 'closed') {
+        setCloseFormOpen(false);
+        setOutcomeNotes('');
+      }
+    } catch (err) {
+      setStatusError(err.message || 'Status update failed');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
 
   const handleRunTriage = async () => {
     setTriageLoading(true);
@@ -399,6 +437,93 @@ function EncounterCard({ enc, patient, onTriageRun, onReferred }) {
           }}
         />
       )}
+
+      {/* ── Step 10: Inline receiving-facility actions ── */}
+      {canAct && (
+        <div
+          style={{
+            marginTop: '0.25rem',
+            background: 'rgba(15,23,42,0.6)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '0.75rem 0.9rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem',
+          }}
+        >
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Receiving Facility Actions
+          </div>
+
+          {statusError && (
+            <div style={{ fontSize: '0.78rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <AlertTriangle size={12} /> {statusError}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Mark Seen — only when acknowledged */}
+            {enc.referral.status === 'acknowledged' && (
+              <button
+                type="button"
+                disabled={statusLoading}
+                onClick={() => handleStatusTransition('seen')}
+                className="btn btn-sm"
+                style={{ padding: '0.3rem 0.75rem', fontSize: '0.76rem', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.4)', color: '#c4b5fd', borderRadius: 'var(--radius-full)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+              >
+                <Eye size={12} />
+                {statusLoading ? 'Updating…' : 'Mark Seen'}
+              </button>
+            )}
+
+            {/* Close — only when seen */}
+            {enc.referral.status === 'seen' && !closeFormOpen && (
+              <button
+                type="button"
+                onClick={() => setCloseFormOpen(true)}
+                className="btn btn-sm"
+                style={{ padding: '0.3rem 0.75rem', fontSize: '0.76rem', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.35)', color: '#34d399', borderRadius: 'var(--radius-full)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+              >
+                <CheckCircle2 size={12} /> Close Referral
+              </button>
+            )}
+          </div>
+
+          {/* Close form — outcome notes required */}
+          {closeFormOpen && enc.referral.status === 'seen' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <textarea
+                rows={2}
+                className="form-input"
+                placeholder="Outcome notes (required to close)…"
+                value={outcomeNotes}
+                onChange={e => setOutcomeNotes(e.target.value)}
+                style={{ fontSize: '0.82rem', resize: 'vertical' }}
+              />
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  disabled={statusLoading || !outcomeNotes.trim()}
+                  onClick={() => handleStatusTransition('closed', outcomeNotes)}
+                  className="btn btn-sm btn-primary"
+                  style={{ fontSize: '0.76rem' }}
+                >
+                  {statusLoading ? 'Closing…' : <><CheckCircle2 size={12} /> Confirm Close</>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCloseFormOpen(false); setOutcomeNotes(''); setStatusError(null); }}
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: '0.76rem' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -531,6 +656,24 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
         },
       },
     }));
+  };
+
+  // Called by EncounterCard (Step 10) when receiving facility transitions status inline
+  const handleStatusUpdated = (encId, newStatus, notes) => {
+    setOverrides(prev => {
+      const existing = prev[encId]?.referral || data?.encounters?.find(e => e._id === encId)?.referral || {};
+      return {
+        ...prev,
+        [encId]: {
+          ...prev[encId],
+          referral: {
+            ...existing,
+            status: newStatus,
+            ...(notes && { outcomeNotes: notes }),
+          },
+        },
+      };
+    });
   };
 
   // Merge optimistic overrides onto encounter list
@@ -703,6 +846,7 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
                 patient={patient}
                 onTriageRun={handleTriageRun}
                 onReferred={handleReferred}
+                onStatusUpdated={handleStatusUpdated}
               />
             ))}
           </div>

@@ -93,7 +93,6 @@ function initSocket(httpServer) {
     console.log(`[Socket] ${name} (${role}) connected — joined user:${userId}`);
 
     // ── Client joins a patient room when it opens a timeline ──
-    // payload: { patientId: string }
     socket.on('join:patient', ({ patientId } = {}) => {
       if (!patientId) return;
       socket.join(`patient:${patientId}`);
@@ -105,6 +104,22 @@ function initSocket(httpServer) {
       if (!patientId) return;
       socket.leave(`patient:${patientId}`);
       console.log(`[Socket] ${name} left patient:${patientId}`);
+    });
+
+    // ── Client joins their facility's inbox room (Step 10) ──
+    // Automatically joined using the facility from the authenticated user record,
+    // so clients cannot subscribe to a facility room they don't belong to.
+    socket.on('join:facility', ({ facilityId } = {}) => {
+      // Enforce: facilityId must match the authenticated user's own facility
+      const userFacilityId = socket.user?.facility?._id?.toString()
+        || socket.user?.facility?.toString();
+      if (!facilityId || facilityId !== userFacilityId) return;
+      socket.join(`facility:${facilityId}`);
+      console.log(`[Socket] ${name} joined facility:${facilityId}`);
+    });
+
+    socket.on('leave:facility', ({ facilityId } = {}) => {
+      socket.leave(`facility:${facilityId}`);
     });
 
     socket.on('disconnect', (reason) => {

@@ -9,6 +9,7 @@ import {
   UserPlus,
   Users,
   QrCode,
+  Inbox,
 } from 'lucide-react';
 
 export const Navbar = ({ currentView, setCurrentView }) => {
@@ -27,6 +28,8 @@ export const Navbar = ({ currentView, setCurrentView }) => {
 
   const canRegisterPatients =
     user && ['frontline_worker', 'medical_officer', 'admin'].includes(user.role);
+  const canSeeInbox =
+    user && ['medical_officer', 'specialist', 'admin'].includes(user.role);
 
   /* ── shared pill button style ── */
   const pill = (active) => ({
@@ -167,6 +170,18 @@ export const Navbar = ({ currentView, setCurrentView }) => {
               >
                 <Building2 size={13} />
                 Facilities
+              </button>
+            )}
+
+            {canSeeInbox && (
+              <button
+                style={pill(currentView === 'referral-inbox')}
+                onClick={() => setCurrentView('referral-inbox')}
+                onMouseEnter={(e) => { if (currentView !== 'referral-inbox') { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#ffffff'; } }}
+                onMouseLeave={(e) => { if (currentView !== 'referral-inbox') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
+              >
+                <Inbox size={13} />
+                Inbox
               </button>
             )}
           </nav>

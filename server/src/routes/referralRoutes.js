@@ -5,11 +5,12 @@ const {
   getReferralById,
   getPatientReferrals,
   updateReferralStatus,
+  getInbox,
 } = require('../controllers/referralController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
 
-// POST /api/referrals — create referral (fromFacility auto-stamped from token)
+// POST /api/referrals
 router.post(
   '/',
   protect,
@@ -20,8 +21,15 @@ router.post(
 // GET /api/referrals?patient=:patientId — cross-facility read
 router.get('/', protect, getPatientReferrals);
 
-// PATCH /api/referrals/:id/status — advance status one step (receiving facility only)
-// Must be declared BEFORE /:id GET to avoid Express swallowing the /status segment
+// GET /api/referrals/inbox — facility-scoped inbox (MUST be before /:id)
+router.get(
+  '/inbox',
+  protect,
+  roleGuard('medical_officer', 'specialist', 'admin'),
+  getInbox
+);
+
+// PATCH /api/referrals/:id/status (MUST be before /:id GET)
 router.patch(
   '/:id/status',
   protect,
@@ -29,7 +37,7 @@ router.patch(
   updateReferralStatus
 );
 
-// GET /api/referrals/:id — single referral detail
+// GET /api/referrals/:id
 router.get('/:id', protect, getReferralById);
 
 module.exports = router;
