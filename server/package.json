@@ -8,6 +8,7 @@
     "dev": "nodemon src/index.js",
     "seed:facilities": "node src/seed/facilities.js",
     "seed:users": "node src/seed/users.js",
+    "seed:cohorts": "node src/seed/cohorts.js",
     "seed": "node src/seed/index.js"
   },
   "dependencies": {

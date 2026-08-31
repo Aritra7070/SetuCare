@@ -639,6 +639,60 @@ const getPatientTimeline = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Complete or deactivate a patient's cohort membership
+ * @route   PATCH /api/patients/:id/cohort-status
+ * @access  Private (frontline_worker, medical_officer, admin)
+ *
+ * Body: { cohortType: 'maternal' | 'chronic', status: 'completed' | 'inactive' }
+ * Touches Patient.cohortMemberships — does NOT touch any Encounter (immutability safe).
+ */
+const updateCohortStatus = async (req, res) => {
+  try {
+    const { cohortType, status } = req.body;
+
+    if (!cohortType || !['maternal', 'chronic'].includes(cohortType)) {
+      return res.status(400).json({
+        success: false,
+        message: "cohortType must be 'maternal' or 'chronic'.",
+      });
+    }
+    if (!status || !['completed', 'inactive'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "status must be 'completed' or 'inactive'.",
+      });
+    }
+
+    const patient = await Patient.findById(req.params.id);
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found.' });
+    }
+
+    const membership = patient.cohortMemberships.find(
+      (m) => m.cohortType === cohortType && m.status === 'active'
+    );
+    if (!membership) {
+      return res.status(404).json({
+        success: false,
+        message: `No active ${cohortType} membership found for this patient.`,
+      });
+    }
+
+    membership.status = status;
+    await patient.save();
+
+    res.status(200).json({
+      success: true,
+      message: `${cohortType} membership marked as ${status}`,
+      cohortMemberships: patient.cohortMemberships,
+    });
+  } catch (error) {
+    console.error('[Patient Controller] updateCohortStatus Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update cohort status.' });
+  }
+};
+
 module.exports = {
   checkDuplicate,
   registerPatient,
@@ -649,5 +703,6 @@ module.exports = {
   getPatientById,
   updatePatient,
   getPatientTimeline,
+  updateCohortStatus,
   calculateAge,
 };

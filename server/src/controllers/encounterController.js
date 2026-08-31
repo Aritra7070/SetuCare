@@ -2,7 +2,83 @@ const Encounter = require('../models/Encounter');
 const Patient = require('../models/Patient');
 const Facility = require('../models/Facility');
 const { SYMPTOM_TAGS } = require('../utils/symptomTags');
+const { CHRONIC_CONDITIONS } = require('../utils/chronicConditions');
 const { runTriage } = require('../utils/triageEngine');
+
+// ---------------------------------------------------------------------------
+// Cohort enrollment helper — runs as a fire-and-forget side effect inside
+// createEncounter. Never blocks the HTTP response.
+// ---------------------------------------------------------------------------
+async function applyEnrollment(patientId, clinicalFlags) {
+  if (!clinicalFlags) return;
+  try {
+    const patient = await Patient.findById(patientId);
+    if (!patient) return;
+
+    const { pregnant, expectedDeliveryDate, chronicConditions } = clinicalFlags;
+    let dirty = false;
+
+    // ── Maternal ──
+    if (pregnant === true) {
+      const existing = patient.cohortMemberships.find(
+        (m) => m.cohortType === 'maternal' && m.status === 'active'
+      );
+      if (existing) {
+        // Update EDD if a new value was provided
+        if (expectedDeliveryDate) {
+          existing.metadata.expectedDeliveryDate = new Date(expectedDeliveryDate);
+          dirty = true;
+        }
+      } else {
+        patient.cohortMemberships.push({
+          cohortType: 'maternal',
+          status: 'active',
+          enrolledAt: new Date(),
+          metadata: {
+            expectedDeliveryDate: expectedDeliveryDate
+              ? new Date(expectedDeliveryDate)
+              : undefined,
+          },
+        });
+        dirty = true;
+      }
+    }
+
+    // ── Chronic ──
+    const validConditions = Array.isArray(chronicConditions)
+      ? chronicConditions.filter((c) => CHRONIC_CONDITIONS.includes(c))
+      : [];
+
+    if (validConditions.length > 0) {
+      const existing = patient.cohortMemberships.find(
+        (m) => m.cohortType === 'chronic' && m.status === 'active'
+      );
+      if (existing) {
+        // Merge new conditions into existing membership (no duplicates)
+        const merged = Array.from(
+          new Set([...(existing.metadata.conditions || []), ...validConditions])
+        );
+        if (merged.length !== (existing.metadata.conditions || []).length) {
+          existing.metadata.conditions = merged;
+          dirty = true;
+        }
+      } else {
+        patient.cohortMemberships.push({
+          cohortType: 'chronic',
+          status: 'active',
+          enrolledAt: new Date(),
+          metadata: { conditions: validConditions },
+        });
+        dirty = true;
+      }
+    }
+
+    if (dirty) await patient.save();
+  } catch (err) {
+    // Non-blocking — log but never fail the encounter creation
+    console.error('[Enrollment] Side-effect error:', err.message);
+  }
+}
 
 /**
  * @desc    Create a new clinical encounter for a patient
@@ -21,7 +97,8 @@ const createEncounter = async (req, res) => {
       otherSymptoms,
       notes,
       encounterType,
-      facilityId, // admin-only override
+      clinicalFlags,   // Step 11 — optional cohort enrollment data
+      facilityId,      // admin-only override
     } = req.body;
 
     if (!patientId) {
@@ -115,7 +192,25 @@ const createEncounter = async (req, res) => {
       triageResult: null,
       encounterType: encounterType || 'walk_in',
       notes: notes ? notes.trim() : undefined,
+      // Step 11 — store clinical flags; enrollment side-effect runs below
+      ...(clinicalFlags && {
+        clinicalFlags: {
+          pregnant: clinicalFlags.pregnant === true ? true : undefined,
+          expectedDeliveryDate: clinicalFlags.expectedDeliveryDate
+            ? new Date(clinicalFlags.expectedDeliveryDate)
+            : undefined,
+          chronicConditions: Array.isArray(clinicalFlags.chronicConditions)
+            ? clinicalFlags.chronicConditions.filter((c) => CHRONIC_CONDITIONS.includes(c))
+            : [],
+          otherConditions: clinicalFlags.otherConditions
+            ? clinicalFlags.otherConditions.trim()
+            : undefined,
+        },
+      }),
     });
+
+    // Step 11 — fire cohort enrollment as non-blocking side effect
+    applyEnrollment(patient._id, clinicalFlags);
 
     const populatedEncounter = await Encounter.findById(encounter._id)
       .populate('facility', 'name tier district state shortCode contactPhone')

@@ -6,6 +6,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const seedFacilityHierarchy = require('./facilities');
 const seedUsers = require('./users');
+const seedCohorts = require('./cohorts');
 
 const runAllSeeds = async () => {
   console.log('====================================================');
@@ -20,6 +21,7 @@ const runAllSeeds = async () => {
   // Order matters: users depend on facilities existing first
   await seedFacilityHierarchy();
   await seedUsers();
+  await seedCohorts();
 
   await mongoose.disconnect();
   console.log('====================================================');

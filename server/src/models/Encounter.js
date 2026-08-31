@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { SYMPTOM_TAGS } = require('../utils/symptomTags');
+const { CHRONIC_CONDITIONS } = require('../utils/chronicConditions');
 
 const encounterSchema = new mongoose.Schema(
   {
@@ -85,6 +86,23 @@ const encounterSchema = new mongoose.Schema(
       type: String,
       enum: ['walk_in', 'follow_up', 'referral_consult'],
       default: 'walk_in',
+    },
+    // Step 11 — clinical flags captured at visit time (immutable with the encounter)
+    // These trigger cohort enrollment as a server-side side effect on creation.
+    clinicalFlags: {
+      pregnant: { type: Boolean },
+      expectedDeliveryDate: { type: Date },
+      chronicConditions: [
+        {
+          type: String,
+          trim: true,
+          enum: {
+            values: CHRONIC_CONDITIONS,
+            message: '"{VALUE}" is not a recognised chronic condition tag.',
+          },
+        },
+      ],
+      otherConditions: { type: String, trim: true }, // free-text catch-all
     },
   },
   {

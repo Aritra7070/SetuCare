@@ -16,7 +16,20 @@ import {
   ArrowRight,
   RotateCcw,
   Zap,
+  ChevronDown,
+  ChevronUp,
+  Heart,
 } from 'lucide-react';
+
+// Step 11 — chronic condition tags (mirrors server/src/utils/chronicConditions.js)
+const CHRONIC_CONDITIONS = [
+  { id: 'diabetes',     label: 'Diabetes' },
+  { id: 'hypertension', label: 'Hypertension' },
+  { id: 'tuberculosis', label: 'Tuberculosis (TB)' },
+  { id: 'asthma',       label: 'Asthma' },
+  { id: 'epilepsy',     label: 'Epilepsy' },
+  { id: 'heart_disease',label: 'Heart Disease' },
+];
 
 // ---------------------------------------------------------------------------
 // Vitals plausibility rules — PRD §6: warn-but-allow, never block
@@ -91,6 +104,13 @@ export const EncounterCreateModal = ({ patient, onClose, onSuccess }) => {
   const [activeCategory, setActiveCategory] = useState('general');
   const [notes, setNotes] = useState('');
 
+  // Step 11 — clinical flags (cohort enrollment), collapsed by default
+  const [flagsOpen,       setFlagsOpen]       = useState(false);
+  const [pregnant,        setPregnant]        = useState(false);
+  const [edd,             setEdd]             = useState('');
+  const [chronicSelected, setChronicSelected] = useState([]);
+  const [otherConditions, setOtherConditions] = useState('');
+
   // Submission state
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
@@ -155,6 +175,15 @@ export const EncounterCreateModal = ({ patient, onClose, onSuccess }) => {
       symptoms: selectedSymptoms,          // canonical IDs only
       otherSymptoms: otherSymptoms.trim() || undefined,
       notes,
+      // Step 11 — clinical flags (only sent if section was touched)
+      ...((pregnant || chronicSelected.length > 0 || otherConditions.trim()) && {
+        clinicalFlags: {
+          ...(pregnant && { pregnant: true }),
+          ...(pregnant && edd && { expectedDeliveryDate: edd }),
+          ...(chronicSelected.length > 0 && { chronicConditions: chronicSelected }),
+          ...(otherConditions.trim() && { otherConditions: otherConditions.trim() }),
+        },
+      }),
     };
 
     try {
@@ -631,6 +660,128 @@ export const EncounterCreateModal = ({ patient, onClose, onSuccess }) => {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+          </div>
+
+          {/* ── Clinical Flags (Step 11 — cohort enrollment, collapsed by default) ── */}
+          <div
+            style={{
+              marginTop: '1.25rem',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Collapsible header */}
+            <button
+              type="button"
+              onClick={() => setFlagsOpen((v) => !v)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.65rem 1rem',
+                background: flagsOpen ? 'rgba(236,72,153,0.08)' : 'rgba(255,255,255,0.03)',
+                border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                transition: 'background 0.2s',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Heart size={15} color="#ec4899" />
+                <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#f8fafc' }}>
+                  Clinical Flags
+                </span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  (optional — triggers cohort enrollment)
+                </span>
+                {(pregnant || chronicSelected.length > 0) && (
+                  <span style={{ fontSize: '0.7rem', background: 'rgba(236,72,153,0.2)', color: '#f9a8d4', padding: '0.1rem 0.4rem', borderRadius: '9999px', border: '1px solid rgba(236,72,153,0.3)' }}>
+                    {[pregnant && 'Pregnant', chronicSelected.length > 0 && `${chronicSelected.length} chronic`].filter(Boolean).join(' · ')}
+                  </span>
+                )}
+              </div>
+              {flagsOpen ? <ChevronUp size={15} color="#94a3b8" /> : <ChevronDown size={15} color="#94a3b8" />}
+            </button>
+
+            {flagsOpen && (
+              <div style={{ padding: '1rem', background: 'rgba(236,72,153,0.04)', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                {/* Pregnant checkbox + EDD */}
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={pregnant}
+                      onChange={(e) => { setPregnant(e.target.checked); if (!e.target.checked) setEdd(''); }}
+                      style={{ width: '15px', height: '15px', accentColor: '#ec4899' }}
+                    />
+                    <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#f8fafc' }}>
+                      🤰 Currently Pregnant
+                    </span>
+                  </label>
+                  {pregnant && (
+                    <div style={{ marginTop: '0.5rem', marginLeft: '1.5rem' }}>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>
+                        Expected Delivery Date (optional)
+                      </label>
+                      <input
+                        type="date"
+                        className="form-input"
+                        value={edd}
+                        onChange={(e) => setEdd(e.target.value)}
+                        style={{ fontSize: '0.85rem', maxWidth: '200px' }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Chronic conditions multi-select */}
+                <div>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '600', color: '#f8fafc', display: 'block', marginBottom: '0.4rem' }}>
+                    Chronic Conditions
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    {CHRONIC_CONDITIONS.map((c) => {
+                      const selected = chronicSelected.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setChronicSelected((prev) =>
+                            prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id]
+                          )}
+                          style={{
+                            padding: '0.3rem 0.65rem', borderRadius: 'var(--radius-md)',
+                            fontSize: '0.78rem', fontWeight: '600',
+                            background: selected ? 'rgba(236,72,153,0.2)' : 'rgba(15,23,42,0.7)',
+                            border: selected ? '1px solid #ec4899' : '1px solid var(--border-subtle)',
+                            color: selected ? '#f9a8d4' : '#e2e8f0',
+                            display: 'flex', alignItems: 'center', gap: '0.3rem',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {selected && <CheckCircle2 size={11} color="#ec4899" />}
+                          {c.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Other conditions free-text */}
+                  <div style={{ marginTop: '0.6rem' }}>
+                    <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>
+                      Other conditions (free text)
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. chronic kidney disease…"
+                      value={otherConditions}
+                      onChange={(e) => setOtherConditions(e.target.value)}
+                      style={{ fontSize: '0.82rem' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Demo presets ── */}

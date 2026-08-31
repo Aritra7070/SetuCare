@@ -10,6 +10,7 @@ const {
   getPatientById,
   updatePatient,
   getPatientTimeline,
+  updateCohortStatus,
 } = require('../controllers/patientController');
 const { getPatientEncounters } = require('../controllers/encounterController');
 const { protect } = require('../middleware/auth');
@@ -57,6 +58,14 @@ router.get('/', protect, getPatients);
 
 // Get single patient
 router.get('/:id', protect, getPatientById);
+
+// Step 11 — complete or deactivate a cohort membership (before /:id to avoid swallowing)
+router.patch(
+  '/:id/cohort-status',
+  protect,
+  roleGuard('frontline_worker', 'medical_officer', 'admin'),
+  updateCohortStatus
+);
 
 // Update patient demographic details
 router.patch(

@@ -785,6 +785,62 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
             )}
           </div>
 
+          {/* Step 11 — Cohort badges */}
+          {(() => {
+            const activeMemberships = (patient.cohortMemberships || []).filter(m => m.status === 'active');
+            const maternal  = activeMemberships.find(m => m.cohortType === 'maternal');
+            const chronic   = activeMemberships.find(m => m.cohortType === 'chronic');
+            // Child: computed from dob — never stored
+            const isChild   = age !== null && age < 5;
+
+            if (!maternal && !chronic && !isChild) return null;
+
+            return (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
+                {maternal && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                    padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)',
+                    fontSize: '0.72rem', fontWeight: '700',
+                    background: 'rgba(236,72,153,0.15)', color: '#f9a8d4',
+                    border: '1px solid rgba(236,72,153,0.35)',
+                  }}>
+                    🤰 Maternal
+                    {maternal.metadata?.expectedDeliveryDate && (
+                      <span style={{ fontWeight: '400', opacity: 0.85 }}>
+                        · EDD {formatDate(maternal.metadata.expectedDeliveryDate)}
+                      </span>
+                    )}
+                  </span>
+                )}
+                {chronic && chronic.metadata?.conditions?.length > 0 && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                    padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)',
+                    fontSize: '0.72rem', fontWeight: '700',
+                    background: 'rgba(245,158,11,0.15)', color: '#fbbf24',
+                    border: '1px solid rgba(245,158,11,0.35)',
+                  }}>
+                    🩺 Chronic: {chronic.metadata.conditions
+                      .map(c => c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' '))
+                      .join(', ')}
+                  </span>
+                )}
+                {isChild && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                    padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)',
+                    fontSize: '0.72rem', fontWeight: '700',
+                    background: 'rgba(16,185,129,0.15)', color: '#34d399',
+                    border: '1px solid rgba(16,185,129,0.35)',
+                  }}>
+                    👶 Child Cohort
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+
           <button onClick={() => setEncounterModalOpen(true)} className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>
             <Stethoscope size={14} /> + Record Visit
           </button>
