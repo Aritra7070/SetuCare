@@ -23,6 +23,9 @@ const notificationSchema = new mongoose.Schema(
         'referral_acknowledged',
         'referral_seen',
         'follow_up_due',
+        'follow_up_due_today',   // Step 13 — same-day reminder to assigned worker
+        'follow_up_missed',      // Step 13 — Tier-1: assigned worker
+        'follow_up_escalated',   // Step 13 — Tier-2: MO at assigned facility
       ],
       required: true,
     },
@@ -30,6 +33,11 @@ const notificationSchema = new mongoose.Schema(
     referral: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Referral',
+    },
+    // The follow-up this notification concerns (Step 13)
+    followUp: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'FollowUp',
     },
     // The patient this notification concerns (for deep-link navigation)
     patient: {

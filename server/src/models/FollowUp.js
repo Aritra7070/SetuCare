@@ -47,13 +47,11 @@ const followUpSchema = new mongoose.Schema(
       default: 'pending',
       index: true,
     },
-    completedAt: {
-      type: Date,
-    },
-    notes: {
-      type: String,
-      trim: true,
-    },
+    completedAt: { type: Date },
+    notes:       { type: String, trim: true },
+    // Step 13 — idempotency guards (prevent re-notification on repeat job runs)
+    notifiedAt:  { type: Date, default: null }, // set when worker notification fires
+    escalatedAt: { type: Date, default: null }, // set when MO escalation fires
   },
   {
     timestamps: true,

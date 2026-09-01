@@ -5,12 +5,13 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
+const cron = require('node-cron');
 
-// Load environment variables before anything else
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const connectDB = require('./config/db');
+const connectDB    = require('./config/db');
 const { initSocket } = require('./socket');
+const { runFollowUpCheck } = require('./jobs/missedFollowUpJob');
 
 const authRoutes     = require('./routes/authRoutes');
 const facilityRoutes = require('./routes/facilityRoutes');
@@ -72,6 +73,21 @@ app.use('/api/encounters', encounterRoutes);
 app.use('/api/referrals',  referralRoutes);
 app.use('/api/followups', followUpRoutes);
 
+// ── Step 13: manual trigger for demo + testing ──
+app.post('/api/admin/run-followup-check',
+  require('./middleware/auth').protect,
+  require('./middleware/roleGuard').roleGuard('admin', 'program_manager'),
+  async (req, res) => {
+    try {
+      const summary = await runFollowUpCheck();
+      res.status(200).json({ success: true, message: 'Follow-up check complete', summary });
+    } catch (err) {
+      console.error('[Admin] run-followup-check error:', err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
+);
+
 // ── 404 handler ──
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -93,6 +109,15 @@ app.use((err, req, res, next) => {
 // ── Create http server and attach Socket.IO BEFORE listen ──
 const httpServer = http.createServer(app);
 initSocket(httpServer);
+
+// ── Step 13: daily missed-follow-up detection cron ──
+// Runs at 06:00 server time every day
+cron.schedule('0 6 * * *', () => {
+  console.log('[Cron] Running daily follow-up check...');
+  runFollowUpCheck().catch((err) => {
+    console.error('[Cron] Follow-up check failed:', err.message);
+  });
+}, { timezone: 'Asia/Kolkata' });
 
 httpServer.listen(PORT, () => {
   console.log(`[SetuCare Server] Running on http://localhost:${PORT}`);
