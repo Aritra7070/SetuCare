@@ -722,7 +722,7 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
 
   if (!data) return null;
 
-  const { patient, summary, age } = data;
+  const { patient, summary, age, followUps = [] } = data;
   const originTier = tierConfig(patient.registeredAtFacility?.tier);
   const isCrossFacility =
     user?.facility?._id &&
@@ -865,6 +865,77 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
           </div>
         ))}
       </div>
+
+      {/* ══ Pending Follow-Ups (Step 12) ══ */}
+      {followUps.length > 0 && (
+        <div className="card" style={{ marginBottom: '1.25rem', padding: '0', overflow: 'hidden' }}>
+          <div style={{ padding: '0.9rem 1.25rem', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Calendar size={16} color="#f59e0b" />
+            <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#f8fafc' }}>Upcoming Follow-Ups</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>({followUps.length} scheduled)</span>
+          </div>
+          {followUps.map((fu, idx) => {
+            const due       = new Date(fu.dueDate);
+            const now       = new Date();
+            const diffDays  = Math.ceil((due - now) / (24 * 60 * 60 * 1000));
+            const isOverdue = diffDays < 0;
+            const isToday   = diffDays === 0;
+            const cohortColors = {
+              maternal: { bg: 'rgba(236,72,153,0.1)',  color: '#f9a8d4', border: 'rgba(236,72,153,0.3)' },
+              chronic:  { bg: 'rgba(245,158,11,0.1)',  color: '#fbbf24', border: 'rgba(245,158,11,0.3)' },
+              child:    { bg: 'rgba(16,185,129,0.1)',  color: '#34d399', border: 'rgba(16,185,129,0.3)' },
+            };
+            const cc = cohortColors[fu.cohortType] || cohortColors.chronic;
+
+            return (
+              <div
+                key={fu._id}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  flexWrap: 'wrap', gap: '0.6rem',
+                  padding: '0.75rem 1.25rem',
+                  borderBottom: idx < followUps.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  background: isOverdue ? 'rgba(244,63,94,0.04)' : 'transparent',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  {/* Cohort type chip */}
+                  <span style={{ padding: '0.15rem 0.5rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: '700', background: cc.bg, color: cc.color, border: `1px solid ${cc.border}`, textTransform: 'capitalize' }}>
+                    {fu.cohortType}
+                  </span>
+                  <span style={{ fontWeight: '600', fontSize: '0.875rem', color: '#f8fafc' }}>
+                    {fu.title}
+                  </span>
+                  {fu.assignedFacility?.name && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      @ {fu.assignedFacility.name}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                  {isOverdue && (
+                    <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#fb7185', background: 'rgba(244,63,94,0.12)', padding: '0.1rem 0.4rem', borderRadius: '9999px', border: '1px solid rgba(244,63,94,0.3)' }}>
+                      OVERDUE
+                    </span>
+                  )}
+                  {isToday && (
+                    <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#fbbf24', background: 'rgba(245,158,11,0.12)', padding: '0.1rem 0.4rem', borderRadius: '9999px', border: '1px solid rgba(245,158,11,0.3)' }}>
+                      DUE TODAY
+                    </span>
+                  )}
+                  <span style={{ fontSize: '0.78rem', color: isOverdue ? '#fb7185' : 'var(--text-secondary)' }}>
+                    {isOverdue
+                      ? `${Math.abs(diffDays)}d overdue`
+                      : isToday ? 'Today'
+                      : `in ${diffDays}d · ${formatDate(fu.dueDate)}`}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ══ Timeline ══ */}
       <div className="card">

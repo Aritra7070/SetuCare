@@ -4,12 +4,13 @@ const Facility = require('../models/Facility');
 const { SYMPTOM_TAGS } = require('../utils/symptomTags');
 const { CHRONIC_CONDITIONS } = require('../utils/chronicConditions');
 const { runTriage } = require('../utils/triageEngine');
+const { applyScheduling, completePendingFollowUp } = require('../utils/schedulingEngine');
 
 // ---------------------------------------------------------------------------
 // Cohort enrollment helper — runs as a fire-and-forget side effect inside
 // createEncounter. Never blocks the HTTP response.
 // ---------------------------------------------------------------------------
-async function applyEnrollment(patientId, clinicalFlags) {
+async function applyEnrollment(patientId, clinicalFlags, workerId, facilityId, encounterId) {
   if (!clinicalFlags) return;
   try {
     const patient = await Patient.findById(patientId);
@@ -17,6 +18,8 @@ async function applyEnrollment(patientId, clinicalFlags) {
 
     const { pregnant, expectedDeliveryDate, chronicConditions } = clinicalFlags;
     let dirty = false;
+    let scheduleMaternal = false;
+    let scheduleChronic  = false;
 
     // ── Maternal ──
     if (pregnant === true) {
@@ -24,10 +27,10 @@ async function applyEnrollment(patientId, clinicalFlags) {
         (m) => m.cohortType === 'maternal' && m.status === 'active'
       );
       if (existing) {
-        // Update EDD if a new value was provided
         if (expectedDeliveryDate) {
           existing.metadata.expectedDeliveryDate = new Date(expectedDeliveryDate);
           dirty = true;
+          scheduleMaternal = true; // EDD updated — regenerate milestones
         }
       } else {
         patient.cohortMemberships.push({
@@ -41,6 +44,7 @@ async function applyEnrollment(patientId, clinicalFlags) {
           },
         });
         dirty = true;
+        scheduleMaternal = true;
       }
     }
 
@@ -54,7 +58,6 @@ async function applyEnrollment(patientId, clinicalFlags) {
         (m) => m.cohortType === 'chronic' && m.status === 'active'
       );
       if (existing) {
-        // Merge new conditions into existing membership (no duplicates)
         const merged = Array.from(
           new Set([...(existing.metadata.conditions || []), ...validConditions])
         );
@@ -70,12 +73,22 @@ async function applyEnrollment(patientId, clinicalFlags) {
           metadata: { conditions: validConditions },
         });
         dirty = true;
+        scheduleChronic = true;
       }
     }
 
     if (dirty) await patient.save();
+
+    // Reload after save so applyScheduling sees the freshest memberships
+    const fresh = dirty ? await Patient.findById(patientId) : patient;
+
+    if (scheduleMaternal) {
+      await applyScheduling({ patient: fresh, cohortType: 'maternal', workerId, facilityId, encounterId });
+    }
+    if (scheduleChronic) {
+      await applyScheduling({ patient: fresh, cohortType: 'chronic', workerId, facilityId, encounterId });
+    }
   } catch (err) {
-    // Non-blocking — log but never fail the encounter creation
     console.error('[Enrollment] Side-effect error:', err.message);
   }
 }
@@ -209,8 +222,34 @@ const createEncounter = async (req, res) => {
       }),
     });
 
-    // Step 11 — fire cohort enrollment as non-blocking side effect
-    applyEnrollment(patient._id, clinicalFlags);
+    // Step 11 — fire cohort enrollment + Step 12 scheduling as non-blocking side effects
+    applyEnrollment(patient._id, clinicalFlags, req.user._id, facility._id, encounter._id);
+
+    // Step 12 — child cohort scheduling: on any encounter for a patient under 5
+    // (child cohort is never stored — derived from dob, so we check here on every encounter)
+    if (patient.dob) {
+      const ageYears = (Date.now() - new Date(patient.dob).getTime())
+        / (365.25 * 24 * 60 * 60 * 1000);
+      if (ageYears < 5) {
+        applyScheduling({
+          patient,
+          cohortType: 'child',
+          workerId: req.user._id,
+          facilityId: facility._id,
+          encounterId: encounter._id,
+        }).catch((e) => console.error('[Scheduling] Child side-effect error:', e.message));
+      }
+    }
+
+    // Step 12 — follow_up encounter completes the earliest pending FollowUp + schedules next
+    if ((encounterType || 'walk_in') === 'follow_up') {
+      completePendingFollowUp({
+        patientId: patient._id,
+        workerId:  req.user._id,
+        facilityId: facility._id,
+        encounterId: encounter._id,
+      }).catch((e) => console.error('[Scheduling] Completion side-effect error:', e.message));
+    }
 
     const populatedEncounter = await Encounter.findById(encounter._id)
       .populate('facility', 'name tier district state shortCode contactPhone')

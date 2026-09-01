@@ -9,6 +9,7 @@
     "seed:facilities": "node src/seed/facilities.js",
     "seed:users": "node src/seed/users.js",
     "seed:cohorts": "node src/seed/cohorts.js",
+    "seed:followups": "node src/seed/followups.js",
     "seed": "node src/seed/index.js"
   },
   "dependencies": {

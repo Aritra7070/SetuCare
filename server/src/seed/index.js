@@ -5,8 +5,9 @@ const path = require('path');
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const seedFacilityHierarchy = require('./facilities');
-const seedUsers = require('./users');
+const seedUsers   = require('./users');
 const seedCohorts = require('./cohorts');
+const seedFollowUps = require('./followups');
 
 const runAllSeeds = async () => {
   console.log('====================================================');
@@ -22,6 +23,7 @@ const runAllSeeds = async () => {
   await seedFacilityHierarchy();
   await seedUsers();
   await seedCohorts();
+  await seedFollowUps();
 
   await mongoose.disconnect();
   console.log('====================================================');

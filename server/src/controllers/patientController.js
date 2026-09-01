@@ -1,8 +1,9 @@
-const Patient = require('../models/Patient');
+const Patient  = require('../models/Patient');
 const Facility = require('../models/Facility');
 const Encounter = require('../models/Encounter');
-const Referral = require('../models/Referral');
-const ScanLog = require('../models/ScanLog');
+const Referral  = require('../models/Referral');
+const FollowUp  = require('../models/FollowUp');
+const ScanLog   = require('../models/ScanLog');
 const { generateUniquePHID } = require('../utils/phidGenerator');
 const { generateQRCodeDataUrl } = require('../utils/qrGenerator');
 
@@ -608,6 +609,16 @@ const getPatientTimeline = async (req, res) => {
       referral: referralByEncounter[enc._id.toString()] || null,
     }));
 
+    // Step 12: fetch pending follow-ups for this patient (soonest first)
+    const followUps = await FollowUp.find({
+      patient: patient._id,
+      status: 'pending',
+    })
+      .populate('assignedWorker',   'name role')
+      .populate('assignedFacility', 'name tier shortCode')
+      .sort({ dueDate: 1 })
+      .lean();
+
     // Pre-compute summary stats so the UI has zero extra work
     const distinctFacilityIds = new Set(
       encounters
@@ -628,6 +639,7 @@ const getPatientTimeline = async (req, res) => {
       patient,
       age: calculateAge(patient.dob),
       encounters: encountersWithReferral,
+      followUps,   // Step 12 — pending tasks for the timeline panel
       summary,
     });
   } catch (error) {
