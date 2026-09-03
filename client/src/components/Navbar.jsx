@@ -5,6 +5,7 @@ import {
   LogOut,
   Hospital,
   Building2,
+  BarChart2,
   LayoutDashboard,
   UserPlus,
   Users,
@@ -29,6 +30,8 @@ export const Navbar = ({ currentView, setCurrentView }) => {
   const canRegisterPatients =
     user && ['frontline_worker', 'medical_officer', 'admin'].includes(user.role);
   const canSeeInbox =
+    user && ['medical_officer', 'specialist', 'admin'].includes(user.role);
+  const canSeeFacilityDashboard =
     user && ['medical_officer', 'specialist', 'admin'].includes(user.role);
 
   /* ── shared pill button style ── */
@@ -170,6 +173,18 @@ export const Navbar = ({ currentView, setCurrentView }) => {
               >
                 <Building2 size={13} />
                 Facilities
+              </button>
+            )}
+
+            {canSeeFacilityDashboard && (
+              <button
+                style={pill(currentView === 'facility-dashboard')}
+                onClick={() => setCurrentView('facility-dashboard')}
+                onMouseEnter={(e) => { if (currentView !== 'facility-dashboard') { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#ffffff'; } }}
+                onMouseLeave={(e) => { if (currentView !== 'facility-dashboard') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
+              >
+                <BarChart2 size={13} />
+                Facility
               </button>
             )}
 

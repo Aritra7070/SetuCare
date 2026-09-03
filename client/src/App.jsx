@@ -11,6 +11,7 @@ import { PatientRegisterPage } from './pages/PatientRegisterPage';
 import { PatientsListPage } from './pages/PatientsListPage';
 import { AdminFacilitiesPage } from './pages/AdminFacilitiesPage';
 import { ReferralInboxPage } from './pages/ReferralInboxPage';
+import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { Activity } from 'lucide-react';
 
 export function App() {
@@ -37,7 +38,8 @@ export function App() {
         currentView === 'patient-register' ||
         currentView === 'patients-list' ||
         currentView === 'admin-facilities' ||
-        currentView === 'referral-inbox'
+        currentView === 'referral-inbox' ||
+        currentView === 'facility-dashboard'
       ) {
         setCurrentView('landing');
       }
@@ -110,6 +112,14 @@ export function App() {
               setCurrentView('patient-timeline');
             }}
           />
+        );
+      case 'facility-dashboard':
+        return (['medical_officer', 'specialist', 'admin'].includes(user?.role)) ? (
+          <FacilityDashboardPage
+            onNavigateToInbox={() => setCurrentView('referral-inbox')}
+          />
+        ) : (
+          <DashboardPage />
         );
       case 'patient-register':
         return <PatientRegisterPage onNavigateToList={() => setCurrentView('patients-list')} />;

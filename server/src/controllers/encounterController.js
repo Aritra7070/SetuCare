@@ -6,6 +6,23 @@ const { CHRONIC_CONDITIONS } = require('../utils/chronicConditions');
 const { runTriage } = require('../utils/triageEngine');
 const { applyScheduling, completePendingFollowUp } = require('../utils/schedulingEngine');
 
+/**
+ * Step 14 — Emit encounter:created to the facility room so the dashboard
+ * activity panel ticks up live. Swallows silently if Socket.IO isn't ready.
+ */
+function emitEncounterCreated(facilityId, encounterId) {
+  try {
+    const { getIO } = require('../socket');
+    getIO().to(`facility:${facilityId}`).emit('encounter:created', {
+      encounterId: encounterId.toString(),
+      facilityId:  facilityId.toString(),
+      createdAt:   new Date().toISOString(),
+    });
+  } catch (_) {
+    // Socket not available in test / CLI contexts — silent
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Cohort enrollment helper — runs as a fire-and-forget side effect inside
 // createEncounter. Never blocks the HTTP response.
@@ -221,6 +238,9 @@ const createEncounter = async (req, res) => {
         },
       }),
     });
+
+    // Step 14 — notify facility dashboard of new encounter (live activity count)
+    emitEncounterCreated(facility._id, encounter._id);
 
     // Step 11 — fire cohort enrollment + Step 12 scheduling as non-blocking side effects
     applyEnrollment(patient._id, clinicalFlags, req.user._id, facility._id, encounter._id);

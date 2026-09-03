@@ -43,6 +43,23 @@ function emitNotification(payload) {
 }
 
 /**
+ * Step 14 — Emit a follow-up status change to the facility room so the
+ * dashboard follow-up panel updates live without a page refresh.
+ *
+ * @param {string|ObjectId} facilityId
+ * @param {'followup:missed'|'followup:due_today'} event
+ * @param {object} payload  — forwarded as-is to subscribed clients
+ */
+function emitFacilityFollowUp(facilityId, event, payload) {
+  try {
+    const { getIO } = require('../socket');
+    getIO().to(`facility:${facilityId}`).emit(event, payload);
+  } catch (_) {
+    // Socket not available — silent
+  }
+}
+
+/**
  * runFollowUpCheck — core detection function.
  * Returns a summary object for the manual API response.
  */
@@ -77,6 +94,17 @@ async function runFollowUpCheck() {
       fu.status = 'missed';
       dirty = true;
       summary.missedMarked++;
+
+      // Step 14 — push to facility dashboard room so follow-up panel updates live
+      if (fu.assignedFacility) {
+        emitFacilityFollowUp(fu.assignedFacility._id, 'followup:missed', {
+          followUpId:  fu._id.toString(),
+          cohortType:  fu.cohortType,
+          patientId:   fu.patient?._id?.toString(),
+          patientName: fu.patient?.name,
+          dueDate:     fu.dueDate,
+        });
+      }
 
       // ── Tier-1: worker notification (once only) ──
       if (fu.assignedWorker && !fu.notifiedAt) {
@@ -163,8 +191,9 @@ async function runFollowUpCheck() {
     status:  'pending',
     dueDate: { $gte: today, $lt: tomorrow },
   })
-    .populate('patient',        'name phid')
-    .populate('assignedWorker', '_id name');
+    .populate('patient',          'name phid')
+    .populate('assignedWorker',   '_id name')
+    .populate('assignedFacility', '_id name');
 
   for (const fu of dueTodayFollowUps) {
     try {
@@ -193,6 +222,17 @@ async function runFollowUpCheck() {
         createdAt: notif.createdAt,
         read: false,
       });
+
+      // Step 14 — push to facility dashboard room so follow-up panel updates live
+      if (fu.assignedFacility) {
+        emitFacilityFollowUp(fu.assignedFacility, 'followup:due_today', {
+          followUpId:  fu._id.toString(),
+          cohortType:  fu.cohortType,
+          patientId:   fu.patient?._id?.toString(),
+          patientName: fu.patient?.name,
+          dueDate:     fu.dueDate,
+        });
+      }
 
       summary.dueTodayReminders++;
     } catch (err) {
