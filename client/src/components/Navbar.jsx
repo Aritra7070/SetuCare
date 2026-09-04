@@ -34,6 +34,8 @@ export const Navbar = ({ currentView, setCurrentView }) => {
     user && ['medical_officer', 'specialist', 'admin'].includes(user.role);
   const canSeeStock =
     user && user.facility; // any authenticated user with a facility
+  const canSeeProgramDashboard =
+    user && ['program_manager', 'admin'].includes(user.role);
   const canSeeFacilityDashboard =
     user && ['medical_officer', 'specialist', 'admin'].includes(user.role);
 
@@ -212,6 +214,18 @@ export const Navbar = ({ currentView, setCurrentView }) => {
               >
                 <Package size={13} />
                 Stock
+              </button>
+            )}
+
+            {canSeeProgramDashboard && (
+              <button
+                style={pill(currentView === 'program-dashboard')}
+                onClick={() => setCurrentView('program-dashboard')}
+                onMouseEnter={(e) => { if (currentView !== 'program-dashboard') { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#ffffff'; } }}
+                onMouseLeave={(e) => { if (currentView !== 'program-dashboard') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
+              >
+                <BarChart2 size={13} />
+                District
               </button>
             )}
           </nav>

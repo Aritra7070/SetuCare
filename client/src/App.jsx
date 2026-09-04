@@ -13,11 +13,12 @@ import { AdminFacilitiesPage } from './pages/AdminFacilitiesPage';
 import { ReferralInboxPage } from './pages/ReferralInboxPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { StockPage } from './pages/StockPage';
+import { ProgramDashboardPage } from './pages/ProgramDashboardPage';
 import { Activity } from 'lucide-react';
 
 export function App() {
   const { user, authChecking, fetchMe } = useAuthStore();
-  const [currentView, setCurrentView] = useState('landing'); // 'landing'|'dashboard'|'scan-lookup'|'patient-timeline'|'patient-register'|'patients-list'|'admin-facilities'|'referral-inbox'|'stock'|'login'|'register'
+  const [currentView, setCurrentView] = useState('landing'); // 'landing'|'dashboard'|'scan-lookup'|'patient-timeline'|'patient-register'|'patients-list'|'admin-facilities'|'referral-inbox'|'stock'|'program-dashboard'|'login'|'register'
   const [timelinePhid, setTimelinePhid] = useState(null);
 
   useEffect(() => {
@@ -40,7 +41,8 @@ export function App() {
         currentView === 'patients-list' ||
         currentView === 'admin-facilities' ||
         currentView === 'referral-inbox'   ||
-        currentView === 'stock' ||
+        currentView === 'stock'            ||
+        currentView === 'program-dashboard' ||
         currentView === 'facility-dashboard'
       ) {
         setCurrentView('landing');
@@ -125,6 +127,10 @@ export function App() {
         );
       case 'stock':
         return <StockPage />;
+      case 'program-dashboard':
+        return (['program_manager', 'admin'].includes(user?.role))
+          ? <ProgramDashboardPage />
+          : <DashboardPage />;
       case 'patient-register':
         return <PatientRegisterPage onNavigateToList={() => setCurrentView('patients-list')} />;
       case 'patients-list':

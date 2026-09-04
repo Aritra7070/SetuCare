@@ -11,13 +11,22 @@ const router  = express.Router();
 
 const { protect }   = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
-const { getFacilityDashboard } = require('../controllers/dashboardController');
+const { getFacilityDashboard, getProgramDashboard } = require('../controllers/dashboardController');
 
 router.get(
   '/facility',
   protect,
   roleGuard('medical_officer', 'specialist', 'admin'),
   getFacilityDashboard
+);
+
+// GET /api/dashboard/program?window=7d|30d|90d
+// Access: program_manager, admin ONLY — not medical_officer (PRD §7)
+router.get(
+  '/program',
+  protect,
+  roleGuard('program_manager', 'admin'),
+  getProgramDashboard
 );
 
 module.exports = router;
