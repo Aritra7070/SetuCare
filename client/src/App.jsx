@@ -12,11 +12,12 @@ import { PatientsListPage } from './pages/PatientsListPage';
 import { AdminFacilitiesPage } from './pages/AdminFacilitiesPage';
 import { ReferralInboxPage } from './pages/ReferralInboxPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
+import { StockPage } from './pages/StockPage';
 import { Activity } from 'lucide-react';
 
 export function App() {
   const { user, authChecking, fetchMe } = useAuthStore();
-  const [currentView, setCurrentView] = useState('landing'); // 'landing' | 'dashboard' | 'scan-lookup' | 'patient-timeline' | 'patient-register' | 'patients-list' | 'admin-facilities' | 'referral-inbox' | 'login' | 'register'
+  const [currentView, setCurrentView] = useState('landing'); // 'landing'|'dashboard'|'scan-lookup'|'patient-timeline'|'patient-register'|'patients-list'|'admin-facilities'|'referral-inbox'|'stock'|'login'|'register'
   const [timelinePhid, setTimelinePhid] = useState(null);
 
   useEffect(() => {
@@ -38,7 +39,8 @@ export function App() {
         currentView === 'patient-register' ||
         currentView === 'patients-list' ||
         currentView === 'admin-facilities' ||
-        currentView === 'referral-inbox' ||
+        currentView === 'referral-inbox'   ||
+        currentView === 'stock' ||
         currentView === 'facility-dashboard'
       ) {
         setCurrentView('landing');
@@ -121,6 +123,8 @@ export function App() {
         ) : (
           <DashboardPage />
         );
+      case 'stock':
+        return <StockPage />;
       case 'patient-register':
         return <PatientRegisterPage onNavigateToList={() => setCurrentView('patients-list')} />;
       case 'patients-list':

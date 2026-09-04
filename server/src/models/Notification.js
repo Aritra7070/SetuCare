@@ -26,6 +26,7 @@ const notificationSchema = new mongoose.Schema(
         'follow_up_due_today',   // Step 13 — same-day reminder to assigned worker
         'follow_up_missed',      // Step 13 — Tier-1: assigned worker
         'follow_up_escalated',   // Step 13 — Tier-2: MO at assigned facility
+        'stock_low',             // Step 15 — item crossed into low/out at a facility
       ],
       required: true,
     },

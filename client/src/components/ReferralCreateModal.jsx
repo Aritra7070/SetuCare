@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Zap,
   ChevronDown,
+  Package,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -109,7 +110,26 @@ export function ReferralCreateModal({ patient, encounter, onClose, onSuccess }) 
     // 3. Fallback — leave blank so worker must choose
   }, [facilitiesLoading, facilities, encounter]);
 
-  // ── Pre-fill reason from triage rationale ──
+  // ── Stock snapshot for selected facility (Step 15) ──
+  const [stockSummary, setStockSummary] = useState([]);
+  const [stockLoading, setStockLoading] = useState(false);
+
+  // Derive the patient's cohort category for filtering (maternal > chronic > general)
+  const cohortCategory = useMemo(() => {
+    const memberships = patient?.cohortMemberships || [];
+    if (memberships.some(m => m.cohortType === 'maternal' && m.status === 'active')) return 'maternal';
+    if (memberships.some(m => m.cohortType === 'chronic'  && m.status === 'active')) return 'chronic';
+    return 'general';
+  }, [patient]);
+
+  useEffect(() => {
+    if (!toFacilityId) { setStockSummary([]); return; }
+    setStockLoading(true);
+    api.get(`/stock/facility/${toFacilityId}/summary`, { params: { category: cohortCategory } })
+      .then(res => { if (res.data.success) setStockSummary(res.data.summary); })
+      .catch(() => {})
+      .finally(() => setStockLoading(false));
+  }, [toFacilityId, cohortCategory]);
   useEffect(() => {
     if (encounter?.triageResult?.rationale && !reason) {
       setReason(encounter.triageResult.rationale);
@@ -410,6 +430,50 @@ export function ReferralCreateModal({ patient, encounter, onClose, onSuccess }) 
               )}
             </div>
           </div>
+
+          {/* ── Step 15: Stock snapshot for selected facility ── */}
+          {toFacilityId && (
+            <div
+              style={{
+                marginTop: '0.75rem',
+                padding: '0.75rem 0.9rem',
+                background: 'rgba(15,23,42,0.6)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.8rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.7rem' }}>
+                <Package size={11} />
+                {selectedFacility?.name} — {cohortCategory.charAt(0).toUpperCase() + cohortCategory.slice(1)} stock
+              </div>
+              {stockLoading ? (
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>Loading…</span>
+              ) : stockSummary.length === 0 ? (
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>No stock data available</span>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                  {stockSummary.map(item => {
+                    const statusColors = {
+                      available: { color: '#34d399', bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.25)' },
+                      low:       { color: '#fbbf24', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.25)' },
+                      out:       { color: '#fb7185', bg: 'rgba(244,63,94,0.12)',  border: 'rgba(244,63,94,0.3)'   },
+                    };
+                    const sc = statusColors[item.status] || statusColors.available;
+                    return (
+                      <span
+                        key={item._id}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.15rem 0.45rem', borderRadius: '4px', fontSize: '0.72rem', background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}
+                      >
+                        {item.name}
+                        {item.status !== 'available' && <span style={{ fontWeight: '700', fontSize: '0.68rem' }}>·{item.status === 'out' ? 'OUT' : 'LOW'}</span>}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Reason ── */}
           <div className="form-group" style={{ marginTop: '1rem' }}>

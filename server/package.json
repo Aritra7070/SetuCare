@@ -10,6 +10,7 @@
     "seed:users": "node src/seed/users.js",
     "seed:cohorts": "node src/seed/cohorts.js",
     "seed:followups": "node src/seed/followups.js",
+    "seed:stock": "node src/seed/stock.js",
     "seed": "node src/seed/index.js"
   },
   "dependencies": {

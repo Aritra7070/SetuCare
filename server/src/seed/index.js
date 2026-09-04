@@ -8,6 +8,7 @@ const seedFacilityHierarchy = require('./facilities');
 const seedUsers   = require('./users');
 const seedCohorts = require('./cohorts');
 const seedFollowUps = require('./followups');
+const seedStock   = require('./stock');
 
 const runAllSeeds = async () => {
   console.log('====================================================');
@@ -24,6 +25,7 @@ const runAllSeeds = async () => {
   await seedUsers();
   await seedCohorts();
   await seedFollowUps();
+  await seedStock();
 
   await mongoose.disconnect();
   console.log('====================================================');

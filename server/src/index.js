@@ -19,7 +19,8 @@ const patientRoutes   = require('./routes/patientRoutes');
 const encounterRoutes = require('./routes/encounterRoutes');
 const referralRoutes  = require('./routes/referralRoutes');
 const followUpRoutes  = require('./routes/followUpRoutes');
-const dashboardRoutes = require('./routes/dashboardRoutes'); // Step 14
+const stockRoutes     = require('./routes/stockRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -72,8 +73,9 @@ app.use('/api/facilities', facilityRoutes);
 app.use('/api/patients',   patientRoutes);
 app.use('/api/encounters', encounterRoutes);
 app.use('/api/referrals',  referralRoutes);
-app.use('/api/followups',  followUpRoutes);
-app.use('/api/dashboard',  dashboardRoutes); // Step 14
+app.use('/api/followups', followUpRoutes);
+app.use('/api/stock',     stockRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // ── Step 13: manual trigger for demo + testing ──
 app.post('/api/admin/run-followup-check',
