@@ -4,6 +4,8 @@ import { useAuthStore } from '../stores/authStore';
 import { useSocket } from '../hooks/useSocket';
 import { EncounterCreateModal } from '../components/EncounterCreateModal';
 import { ReferralCreateModal, REFERRAL_STATUS_CONFIG } from '../components/ReferralCreateModal';
+import { TeleconsultRequestModal } from '../components/TeleconsultRequestModal';
+import { VideoRoom } from '../components/VideoRoom';
 import { SYMPTOM_LABEL_MAP } from '../utils/symptomVocabulary';
 import {
   ArrowLeft,
@@ -23,6 +25,7 @@ import {
   Send,
   ArrowRight,
   Eye,
+  Video,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -142,12 +145,13 @@ function VitalPill({ label, value, color = 'neutral' }) {
 //   onReferred      — (encounterId, referral) => void
 //   onStatusUpdated — (encounterId, newStatus, outcomeNotes?) => void  [Step 10]
 // ---------------------------------------------------------------------------
-function EncounterCard({ enc, patient, onTriageRun, onReferred, onStatusUpdated }) {
+function EncounterCard({ enc, patient, onTriageRun, onReferred, onStatusUpdated, onStartVideoRoom }) {
   const { user }       = useAuthStore();
   const [notesExpanded,  setNotesExpanded]  = useState(false);
   const [triageLoading,  setTriageLoading]  = useState(false);
   const [triageError,    setTriageError]    = useState(null);
   const [referralOpen,   setReferralOpen]   = useState(false);
+  const [teleconsultOpen, setTeleconsultOpen] = useState(false);
   // Step 10 — inline status actions (Mark Seen / Close)
   const [statusLoading,  setStatusLoading]  = useState(false);
   const [statusError,    setStatusError]    = useState(null);
@@ -416,6 +420,16 @@ function EncounterCard({ enc, patient, onTriageRun, onReferred, onStatusUpdated 
               </button>
             )}
 
+            {/* Teleconsult — always available from any encounter */}
+            <button
+              type="button"
+              onClick={() => setTeleconsultOpen(true)}
+              className="btn btn-outline btn-sm"
+              style={{ fontSize: '0.78rem', padding: '0.3rem 0.7rem', color: '#93c5fd', borderColor: 'rgba(59,130,246,0.3)' }}
+            >
+              <Video size={12} /> Teleconsult
+            </button>
+
             {triageError && (
               <span style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                 <AlertTriangle size={11} /> {triageError}
@@ -434,6 +448,18 @@ function EncounterCard({ enc, patient, onTriageRun, onReferred, onStatusUpdated 
           onSuccess={(referral) => {
             setReferralOpen(false);
             onReferred(enc._id, referral);
+          }}
+        />
+      )}
+
+      {teleconsultOpen && (
+        <TeleconsultRequestModal
+          patient={patient}
+          encounter={enc}
+          onClose={() => setTeleconsultOpen(false)}
+          onJoined={({ sessionId, roomId, patient: p }) => {
+            setTeleconsultOpen(false);
+            onStartVideoRoom({ sessionId, roomId, patient: p, isInitiator: true });
           }}
         />
       )}
@@ -545,6 +571,10 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
   // Optimistic overrides keyed by encounter _id
   // Shape: { [encId]: { triageResult?, referral? } }
   const [overrides, setOverrides] = useState({});
+
+  // Step 17 — video room state (null = no active call)
+  const [activeVideoRoom, setActiveVideoRoom] = useState(null);
+  // { sessionId, roomId, patient, isInitiator }
 
   const fetchTimeline = useCallback(async () => {
     if (!phid) return;
@@ -676,6 +706,11 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
     });
   };
 
+  // Step 17 — called by EncounterCard when teleconsult is started
+  const handleStartVideoRoom = ({ sessionId, roomId, patient: callPatient, isInitiator }) => {
+    setActiveVideoRoom({ sessionId, roomId, patient: callPatient, isInitiator });
+  };
+
   // Merge optimistic overrides onto encounter list
   const mergedEncounters = (data?.encounters || []).map(enc => {
     const ov = overrides[enc._id];
@@ -732,7 +767,19 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
   return (
     <div className="main-content" style={{ maxWidth: '860px' }}>
 
-      {/* Back */}
+      {/* Step 17 — fullscreen video room (renders over everything else when active) */}
+      {activeVideoRoom && (
+        <VideoRoom
+          sessionId={activeVideoRoom.sessionId}
+          roomId={activeVideoRoom.roomId}
+          isInitiator={activeVideoRoom.isInitiator}
+          patient={activeVideoRoom.patient}
+          onEnd={({ notes, logAsEncounter }) => {
+            setActiveVideoRoom(null);
+            if (logAsEncounter) setEncounterModalOpen(true);
+          }}
+        />
+      )}
       <button onClick={onBack} className="btn btn-outline btn-sm" style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
         <ArrowLeft size={14} /> Back to Scanner
       </button>
@@ -974,6 +1021,7 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
                 onTriageRun={handleTriageRun}
                 onReferred={handleReferred}
                 onStatusUpdated={handleStatusUpdated}
+                onStartVideoRoom={handleStartVideoRoom}
               />
             ))}
           </div>

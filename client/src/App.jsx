@@ -14,12 +14,16 @@ import { ReferralInboxPage } from './pages/ReferralInboxPage';
 import { FacilityDashboardPage } from './pages/FacilityDashboardPage';
 import { StockPage } from './pages/StockPage';
 import { ProgramDashboardPage } from './pages/ProgramDashboardPage';
+import { IncomingConsultBanner } from './components/IncomingConsultBanner';
+import { VideoRoom } from './components/VideoRoom';
 import { Activity } from 'lucide-react';
 
 export function App() {
   const { user, authChecking, fetchMe } = useAuthStore();
   const [currentView, setCurrentView] = useState('landing'); // 'landing'|'dashboard'|'scan-lookup'|'patient-timeline'|'patient-register'|'patients-list'|'admin-facilities'|'referral-inbox'|'stock'|'program-dashboard'|'login'|'register'
   const [timelinePhid, setTimelinePhid] = useState(null);
+  // Step 17 — global video room (incoming calls from IncomingConsultBanner)
+  const [globalVideoRoom, setGlobalVideoRoom] = useState(null);
 
   useEffect(() => {
     fetchMe();
@@ -160,7 +164,27 @@ export function App() {
           <Navbar currentView={currentView} setCurrentView={setCurrentView} />
 
           {user ? (
-            renderCurrentView()
+            <>
+              {renderCurrentView()}
+
+              {/* Step 17 — global incoming teleconsult banner (any screen) */}
+              <IncomingConsultBanner
+                onJoin={({ sessionId, roomId, patient }) => {
+                  setGlobalVideoRoom({ sessionId, roomId, patient, isInitiator: false });
+                }}
+              />
+
+              {/* Step 17 — global video room for incoming calls answered via banner */}
+              {globalVideoRoom && (
+                <VideoRoom
+                  sessionId={globalVideoRoom.sessionId}
+                  roomId={globalVideoRoom.roomId}
+                  isInitiator={globalVideoRoom.isInitiator}
+                  patient={globalVideoRoom.patient}
+                  onEnd={() => setGlobalVideoRoom(null)}
+                />
+              )}
+            </>
           ) : currentView === 'register' ? (
             <RegisterPage onSwitchToLogin={() => setCurrentView('login')} />
           ) : (

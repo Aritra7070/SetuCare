@@ -122,6 +122,16 @@ function initSocket(httpServer) {
       socket.leave(`facility:${facilityId}`);
     });
 
+    // ── Teleconsult room — joined by both caller and receiver during a call ──
+    socket.on('join:teleconsult', ({ roomId } = {}) => {
+      if (!roomId) return;
+      socket.join(`teleconsult:${roomId}`);
+    });
+    socket.on('leave:teleconsult', ({ roomId } = {}) => {
+      if (!roomId) return;
+      socket.leave(`teleconsult:${roomId}`);
+    });
+
     socket.on('disconnect', (reason) => {
       console.log(`[Socket] ${name} disconnected — ${reason}`);
     });
