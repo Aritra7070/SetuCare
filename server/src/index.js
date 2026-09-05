@@ -22,6 +22,7 @@ const followUpRoutes  = require('./routes/followUpRoutes');
 const stockRoutes        = require('./routes/stockRoutes');
 const dashboardRoutes    = require('./routes/dashboardRoutes');
 const teleconsultRoutes  = require('./routes/teleconsultRoutes');
+const emergencyRoutes    = require('./routes/emergencyRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -78,6 +79,7 @@ app.use('/api/followups', followUpRoutes);
 app.use('/api/stock',        stockRoutes);
 app.use('/api/dashboard',   dashboardRoutes);
 app.use('/api/teleconsult', teleconsultRoutes);
+app.use('/api/emergency',  emergencyRoutes);
 
 // ── Step 13: manual trigger for demo + testing ──
 app.post('/api/admin/run-followup-check',

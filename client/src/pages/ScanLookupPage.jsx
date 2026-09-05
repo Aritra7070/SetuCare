@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../api/axios';
 import { useAuthStore } from '../stores/authStore';
 import { QRScanner } from '../components/QRScanner';
@@ -6,12 +7,10 @@ import { PatientCardModal } from '../components/PatientCardModal';
 import {
   QrCode,
   Search,
-  User,
   Hospital,
   AlertTriangle,
   CheckCircle2,
   Calendar,
-  Sparkles,
   ArrowRight,
   Stethoscope,
   Globe,
@@ -20,28 +19,16 @@ import {
   Activity,
 } from 'lucide-react';
 
-/**
- * ScanLookupPage — Step 4 entry point.
- *
- * Responsibilities:
- *   1. QR camera scan / file upload / manual PHID entry
- *   2. Patient found → brief confirmation card → navigate to PatientTimelinePage
- *   3. Patient not found → offer to register
- *
- * Everything that used to live here (encounter list, encounter creation modal,
- * vitals pills, symptom chips) is now owned by PatientTimelinePage (Step 6).
- */
 export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) => {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
 
-  const [inputPhid, setInputPhid]     = useState('');
-  const [loading, setLoading]         = useState(false);
-  const [lookupError, setLookupError] = useState(null);
+  const [inputPhid, setInputPhid]       = useState('');
+  const [loading, setLoading]           = useState(false);
+  const [lookupError, setLookupError]   = useState(null);
   const [notFoundPhid, setNotFoundPhid] = useState(null);
-  const [lookupResult, setLookupResult] = useState(null); // brief confirm state before nav
+  const [lookupResult, setLookupResult] = useState(null);
   const [cardModalOpen, setCardModalOpen] = useState(false);
-
-  // 1-click demo chips
   const [recentPatients, setRecentPatients] = useState([]);
 
   useEffect(() => {
@@ -54,10 +41,9 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
       .catch(() => {});
   }, []);
 
-  // ── Lookup ──
   const performLookup = async (phidToSearch, source = 'manual_entry') => {
     if (!phidToSearch?.trim()) {
-      setLookupError('Please enter or scan a valid PHID.');
+      setLookupError(t('patient.phidLabel') + ' — required');
       return;
     }
     const cleanPhid = phidToSearch.trim();
@@ -107,13 +93,12 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
   };
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return 'N/A';
+    if (!dateStr) return t('common.na');
     return new Date(dateStr).toLocaleDateString('en-IN', {
       day: 'numeric', month: 'short', year: 'numeric',
     });
   };
 
-  // ── Render ──
   return (
     <div className="main-content">
       {/* Top banner */}
@@ -126,10 +111,10 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <QrCode size={26} color="#14b8a6" />
-            Patient QR Scan &amp; Universal Lookup
+            {t('patient.lookup')}
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-            Scan patient health card or enter PHID to instantly access their cross-facility clinical timeline.
+            {t('patient.lookupDesc')}
           </p>
         </div>
 
@@ -143,7 +128,7 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
         >
           <Hospital size={15} color="#06b6d4" />
           <span>
-            Scanning at:{' '}
+            {t('nav.scanningAt')}{' '}
             <strong style={{ color: '#ffffff' }}>{user?.facility?.name || 'Local Health Facility'}</strong>{' '}
             <span style={{ color: '#22d3ee', fontFamily: 'var(--font-mono)' }}>
               [{user?.facility?.shortCode || 'FAC'}]
@@ -152,7 +137,7 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
         </div>
       </div>
 
-      {/* ── FOUND: brief confirmation card before navigating to timeline ── */}
+      {/* ── FOUND ── */}
       {lookupResult ? (
         <div style={{ maxWidth: '680px', margin: '0 auto' }}>
           <div
@@ -190,8 +175,8 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#cbd5e1', marginTop: '1px' }}>
                   {lookupResult.scanContext?.isCrossFacility
-                    ? `Registered at ${lookupResult.patient.registeredAtFacility?.name || 'another facility'}`
-                    : `Enrolled locally at ${lookupResult.patient.registeredAtFacility?.name}`}
+                    ? `${t('patient.enrolledAt')} ${lookupResult.patient.registeredAtFacility?.name || 'another facility'}`
+                    : `${t('patient.enrolledAt')} ${lookupResult.patient.registeredAtFacility?.name}`}
                 </div>
               </div>
             </div>
@@ -214,7 +199,7 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                 </span>
                 {lookupResult.age !== null && lookupResult.age !== undefined && (
                   <span style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
-                    {lookupResult.age} yrs ·{' '}
+                    {t('patient.age', { age: lookupResult.age })} ·{' '}
                     <span style={{ textTransform: 'capitalize' }}>{lookupResult.patient.gender || 'unknown'}</span>
                   </span>
                 )}
@@ -238,14 +223,16 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.4rem' }}>
                   <Stethoscope size={13} color="#14b8a6" />
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    {lookupResult.encounterCount} prior{' '}
-                    {lookupResult.encounterCount === 1 ? 'encounter' : 'encounters'} on record
+                    {lookupResult.encounterCount === 1
+                      ? t('patient.priorEncounters', { count: lookupResult.encounterCount })
+                      : t('patient.priorEncounters_plural', { count: lookupResult.encounterCount })}
+                    {' '}{t('common.note') === 'Note' ? 'on record' : ''}
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Primary CTA — navigate to timeline */}
+            {/* CTAs */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               <button
                 className="btn btn-primary"
@@ -253,7 +240,7 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                 onClick={() => onNavigateToTimeline(lookupResult.patient.phid)}
               >
                 <Activity size={16} />
-                Open Longitudinal Timeline
+                {t('patient.openTimeline')}
                 <ArrowRight size={15} />
               </button>
 
@@ -263,20 +250,19 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                   className="btn btn-outline btn-sm"
                   style={{ flex: 1 }}
                 >
-                  <QrCode size={13} /> View Digital Card
+                  <QrCode size={13} /> {t('patient.viewCard')}
                 </button>
                 <button
                   onClick={resetSearch}
                   className="btn btn-outline btn-sm"
                   style={{ flex: 1 }}
                 >
-                  <RotateCcw size={13} /> Scan Another
+                  <RotateCcw size={13} /> {t('patient.scanAnother')}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Patient card modal */}
           {cardModalOpen && (
             <PatientCardModal
               patient={lookupResult.patient}
@@ -300,10 +286,10 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
           >
             <AlertTriangle size={48} color="#f43f5e" style={{ margin: '0 auto 1rem auto' }} />
             <h2 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#ffffff', marginBottom: '0.5rem' }}>
-              No Patient Record Found
+              {t('patient.notFound')}
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              No active patient record in the Maharashtra registry matches:
+              {t('patient.notFoundDesc')}
             </p>
             <div
               style={{
@@ -318,11 +304,11 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               <button onClick={resetSearch} className="btn btn-outline">
-                <RotateCcw size={14} /> Scan Another Code
+                <RotateCcw size={14} /> {t('patient.scanAnother')}
               </button>
               {onNavigateToRegister && (
                 <button onClick={onNavigateToRegister} className="btn btn-primary">
-                  <UserPlus size={14} /> Register New Patient
+                  <UserPlus size={14} /> {t('patient.registerNew')}
                 </button>
               )}
             </div>
@@ -366,11 +352,11 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                 </div>
                 <form onSubmit={handleManualSubmit}>
                   <div className="form-group">
-                    <label className="form-label">Patient Health ID (PHID)</label>
+                    <label className="form-label">{t('patient.phidLabel')}</label>
                     <input
                       type="text"
                       className="form-input"
-                      placeholder="e.g. MH-PUN-SC01-RYX5RE"
+                      placeholder={t('patient.phidPlaceholder')}
                       style={{ fontFamily: 'var(--font-mono)', fontSize: '0.95rem', textTransform: 'uppercase' }}
                       value={inputPhid}
                       onChange={(e) => setInputPhid(e.target.value.toUpperCase())}
@@ -382,7 +368,9 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                     className="btn btn-primary"
                     style={{ width: '100%', padding: '0.75rem' }}
                   >
-                    {loading ? 'Looking up…' : <><span>Lookup Patient</span> <ArrowRight size={15} /></>}
+                    {loading
+                      ? t('patient.lookingUp')
+                      : <><span>{t('patient.lookupBtn')}</span> <ArrowRight size={15} /></>}
                   </button>
                 </form>
               </div>
@@ -417,12 +405,10 @@ export const ScanLookupPage = ({ onNavigateToRegister, onNavigateToTimeline }) =
                           </div>
                         </div>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: '#22d3ee' }}>
-                          {loading && inputPhid === p.phid ? 'Loading…' : p.phid}
+                          {loading && inputPhid === p.phid ? t('common.loading') : p.phid}
                         </span>
                       </button>
                     ))}
-
-
                   </div>
                 </div>
               )}

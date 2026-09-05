@@ -7,6 +7,7 @@ const {
   getMe,
   testRoleGuard,
   testFacilityScope,
+  updatePreferredLanguage,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { roleGuard } = require('../middleware/roleGuard');
@@ -19,6 +20,9 @@ router.post('/logout', logout);
 
 // Protected routes
 router.get('/me', protect, getMe);
+
+// Step 18 — update preferred language (persists to User document)
+router.patch('/me/preferred-language', protect, updatePreferredLanguage);
 
 // Verification routes for testing middleware functionality
 router.get(

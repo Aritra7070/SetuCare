@@ -62,6 +62,18 @@ const referralSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Step 19 — emergency escalation
+    isEmergency: {
+      type: Boolean,
+      default: false,
+    },
+    // Set only when a previously non-emergency referral is escalated after creation.
+    // Distinct from createdAt — a referral can be declared emergency at creation
+    // (isEmergency: true, escalatedAt: null) or escalated later (escalatedAt: Date).
+    escalatedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import api from '../api/axios';
 import { useAuthStore } from '../stores/authStore';
+import { useTranslation } from 'react-i18next';
 import { SYMPTOM_CATEGORIES } from '../utils/symptomVocabulary';
 import {
   Stethoscope,
@@ -89,6 +90,7 @@ const PRESETS = {
 // ---------------------------------------------------------------------------
 export const EncounterCreateModal = ({ patient, onClose, onSuccess }) => {
   const { user } = useAuthStore();
+  const { t }    = useTranslation();
 
   // Form state
   const [encounterType, setEncounterType] = useState('walk_in');
@@ -507,7 +509,7 @@ export const EncounterCreateModal = ({ patient, onClose, onSuccess }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
               <Activity size={16} color="#14b8a6" />
               <label className="form-label" style={{ marginBottom: 0 }}>
-                Patient Vital Signs <span style={{ fontWeight: '400', color: 'var(--text-muted)' }}>(all optional)</span>
+                {t('encounter.vitals')} <span style={{ fontWeight: '400', color: 'var(--text-muted)' }}>{t('encounter.allOptional')}</span>
               </label>
             </div>
 
@@ -623,7 +625,8 @@ export const EncounterCreateModal = ({ patient, onClose, onSuccess }) => {
                     }}
                   >
                     {isSelected && <CheckCircle2 size={12} color="#14b8a6" />}
-                    {s.en} <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>({s.mr})</span>
+                    {t(`enums.symptoms.${s.id}`, { defaultValue: s.en })}
+                    {' '}<span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>({s.mr})</span>
                   </button>
                 );
               })}

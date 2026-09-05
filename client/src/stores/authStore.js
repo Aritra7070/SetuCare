@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '../api/axios';
+import { applyLanguageFromUser } from '../i18n';
 
 export const useAuthStore = create((set, get) => ({
   user: null,
@@ -18,6 +19,7 @@ export const useAuthStore = create((set, get) => ({
       const res = await api.get('/auth/me');
       if (res.data.success && res.data.user) {
         set({ user: res.data.user, authChecking: false });
+        applyLanguageFromUser(res.data.user); // Step 18 — snap language on session restore
       } else {
         set({ user: null, authChecking: false });
       }
@@ -36,6 +38,7 @@ export const useAuthStore = create((set, get) => ({
       const res = await api.post('/auth/login', { email, password });
       if (res.data.success && res.data.user) {
         set({ user: res.data.user, loading: false, error: null });
+        applyLanguageFromUser(res.data.user); // Step 18
         return { success: true, user: res.data.user };
       }
       return { success: false, message: 'Invalid response from server' };
@@ -54,6 +57,7 @@ export const useAuthStore = create((set, get) => ({
       const res = await api.post('/auth/register', userData);
       if (res.data.success && res.data.user) {
         set({ user: res.data.user, loading: false, error: null });
+        applyLanguageFromUser(res.data.user); // Step 18
         return { success: true, user: res.data.user };
       }
       return { success: false, message: 'Invalid response from server' };

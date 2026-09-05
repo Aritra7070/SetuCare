@@ -1,5 +1,7 @@
 import React from 'react';
 import { useAuthStore } from '../stores/authStore';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import {
   Activity,
   LogOut,
@@ -16,17 +18,9 @@ import {
 
 export const Navbar = ({ currentView, setCurrentView }) => {
   const { user, logout, loading } = useAuthStore();
+  const { t } = useTranslation();
 
-  const getRoleDisplayName = (role) => {
-    switch (role) {
-      case 'frontline_worker':   return 'ASHA / Frontline Worker';
-      case 'medical_officer':    return 'Medical Officer (MO)';
-      case 'specialist':         return 'Specialist (DH/RH)';
-      case 'program_manager':    return 'Program Manager';
-      case 'admin':              return 'System Administrator';
-      default:                   return role || 'User';
-    }
-  };
+  const getRoleDisplayName = (role) => t(`enums.roles.${role}`, { defaultValue: role || 'User' });
 
   const canRegisterPatients =
     user && ['frontline_worker', 'medical_officer', 'admin'].includes(user.role);
@@ -134,7 +128,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
               onMouseLeave={(e) => { if (currentView !== 'dashboard') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
             >
               <LayoutDashboard size={13} />
-              Overview
+              {t('nav.overview')}
             </button>
 
             <button
@@ -144,7 +138,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
               onMouseLeave={(e) => { const a = currentView === 'scan-lookup' || currentView === 'patient-timeline'; if (!a) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
             >
               <QrCode size={13} />
-              Scan / Lookup
+              {t('nav.scanLookup')}
             </button>
 
             {canRegisterPatients && (
@@ -155,7 +149,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
                 onMouseLeave={(e) => { if (currentView !== 'patient-register') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
               >
                 <UserPlus size={13} />
-                Register Patient
+                {t('nav.registerPatient')}
               </button>
             )}
 
@@ -166,7 +160,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
               onMouseLeave={(e) => { if (currentView !== 'patients-list') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
             >
               <Users size={13} />
-              Patients
+              {t('nav.patients')}
             </button>
 
             {user.role === 'admin' && (
@@ -177,7 +171,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
                 onMouseLeave={(e) => { if (currentView !== 'admin-facilities') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
               >
                 <Building2 size={13} />
-                Facilities
+                {t('nav.facilities')}
               </button>
             )}
 
@@ -189,7 +183,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
                 onMouseLeave={(e) => { if (currentView !== 'facility-dashboard') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
               >
                 <BarChart2 size={13} />
-                Facility
+                {t('nav.facilityDashboard')}
               </button>
             )}
 
@@ -201,7 +195,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
                 onMouseLeave={(e) => { if (currentView !== 'referral-inbox') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
               >
                 <Inbox size={13} />
-                Inbox
+                {t('nav.inbox')}
               </button>
             )}
 
@@ -213,7 +207,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
                 onMouseLeave={(e) => { if (currentView !== 'stock') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
               >
                 <Package size={13} />
-                Stock
+                {t('nav.stock')}
               </button>
             )}
 
@@ -225,7 +219,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
                 onMouseLeave={(e) => { if (currentView !== 'program-dashboard') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; } }}
               >
                 <BarChart2 size={13} />
-                District
+                {t('nav.district')}
               </button>
             )}
           </nav>
@@ -305,6 +299,9 @@ export const Navbar = ({ currentView, setCurrentView }) => {
               </div>
             )}
 
+            {/* Language switcher — visible to all authenticated users */}
+            <LanguageSwitcher />
+
             {/* Logout */}
             <button
               onClick={logout}
@@ -327,11 +324,12 @@ export const Navbar = ({ currentView, setCurrentView }) => {
               onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
             >
               <LogOut size={13} />
-              Logout
+              {t('auth.signOut')}
             </button>
           </>
         ) : (
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <LanguageSwitcher />
             <button
               onClick={() => setCurrentView('login')}
               style={{
@@ -345,7 +343,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
                 fontFamily: 'inherit',
               }}
             >
-              Sign In
+              {t('auth.signIn')}
             </button>
             <button
               onClick={() => setCurrentView('register')}
@@ -361,7 +359,7 @@ export const Navbar = ({ currentView, setCurrentView }) => {
                 fontFamily: 'inherit',
               }}
             >
-              Get Started
+              {t('auth.getStarted')}
             </button>
           </div>
         )}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import {
   User,
@@ -25,25 +26,11 @@ export const DashboardPage = ({
   onNavigateToScan,
 }) => {
   const { user } = useAuthStore();
+  const { t } = useTranslation();
 
   if (!user) return null;
 
-  const getRoleDisplayName = (role) => {
-    switch (role) {
-      case 'frontline_worker':
-        return 'Frontline Health Worker (ASHA / ANM)';
-      case 'medical_officer':
-        return 'Medical Officer (PHC Level)';
-      case 'specialist':
-        return 'Specialist (District / Rural Hospital)';
-      case 'program_manager':
-        return 'District Program Manager';
-      case 'admin':
-        return 'System Administrator';
-      default:
-        return role;
-    }
-  };
+  const getRoleDisplayName = (role) => t(`enums.roles.${role}`, { defaultValue: role || 'User' });
 
   const getRoleScopeDescription = (role) => {
     switch (role) {
@@ -79,7 +66,7 @@ export const DashboardPage = ({
       >
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
-            Welcome back, {user.name}
+            {t('dashboard.welcome', { name: user.name, defaultValue: `Welcome back, ${user.name}` })}
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
             SetuCare Phase 1 & 2 Active &bull; Maharashtra Stepped-Care Network
@@ -115,7 +102,7 @@ export const DashboardPage = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
               <Scan size={20} color="#22d3ee" />
               <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#ffffff' }}>
-                Scan & Lookup PHID
+                {t('nav.scanLookup')}
               </h3>
             </div>
             <p style={{ fontSize: '0.825rem', color: '#cbd5e1' }}>
@@ -129,7 +116,7 @@ export const DashboardPage = ({
               className="btn btn-primary"
               style={{ width: '100%', padding: '0.6rem', fontSize: '0.875rem' }}
             >
-              <QrCode size={14} /> Open QR Scanner / Lookup
+              <QrCode size={14} /> {t('nav.scanLookup')}
             </button>
           </div>
         </div>
@@ -164,7 +151,7 @@ export const DashboardPage = ({
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '0.6rem', fontSize: '0.875rem', background: 'linear-gradient(135deg, #0d9488 0%, #10b981 100%)' }}
               >
-                <UserPlus size={14} /> Register Patient (PHID)
+                <UserPlus size={14} /> {t('nav.registerPatient')}
               </button>
             </div>
           </div>
@@ -199,7 +186,7 @@ export const DashboardPage = ({
               className="btn btn-outline"
               style={{ width: '100%', padding: '0.6rem', fontSize: '0.875rem', borderColor: 'rgba(139, 92, 246, 0.4)', color: '#c4b5fd' }}
             >
-              <Users size={14} /> View Directory
+              <Users size={14} /> {t('nav.patients')}
             </button>
           </div>
         </div>

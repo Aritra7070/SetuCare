@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 import { PatientCardModal } from '../components/PatientCardModal';
@@ -9,16 +10,11 @@ import {
   AlertTriangle,
   Sparkles,
   ArrowRight,
-  ShieldAlert,
   CheckCircle2,
-  Calendar,
-  Phone,
-  MapPin,
-  Globe,
-  User,
 } from 'lucide-react';
 
 export const PatientRegisterPage = ({ onNavigateToList }) => {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
 
   const [formData, setFormData] = useState({
@@ -112,7 +108,7 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
     } else if (type === 'minor') {
       setFormData({
         name: 'Aarav Suresh Patil',
-        dob: '2019-03-10', // 7 years old
+        dob: '2019-03-10',
         gender: 'male',
         guardianName: 'Suresh Patil (Father)',
         phone: '+91-9822001122',
@@ -137,7 +133,7 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
     setFormError(null);
 
     if (isMinor && (!formData.guardianName || !formData.guardianName.trim())) {
-      setFormError('Guardian name is mandatory for minors under 18 years of age.');
+      setFormError(t('patient.guardianError'));
       return;
     }
 
@@ -171,10 +167,10 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: '800', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <UserPlus size={26} color="#14b8a6" />
-            Patient Registration & PHID Issuance
+            {t('patient.registration')}
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-            Register new patient demographics and generate an offline-scannable QR health card.
+            {t('patient.registrationDesc')}
           </p>
         </div>
 
@@ -192,7 +188,7 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
         >
           <Hospital size={16} color="#14b8a6" />
           <div style={{ fontSize: '0.825rem' }}>
-            Registering at:{' '}
+            {t('patient.registeringAt')}{' '}
             <strong style={{ color: '#ffffff' }}>
               {user?.facility?.name || 'Assigned Health Facility'}
             </strong>{' '}
@@ -218,10 +214,10 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
             <AlertTriangle size={22} color="#f59e0b" style={{ flexShrink: 0 }} />
             <div style={{ width: '100%' }}>
               <div style={{ fontWeight: '700', fontSize: '0.95rem', color: '#fbbf24' }}>
-                Soft Duplicate Match Warning
+                {t('patient.duplicateTitle')}
               </div>
               <div style={{ fontSize: '0.85rem', color: '#fef3c7', marginTop: '0.2rem' }}>
-                The following existing patient(s) share a similar name/DOB or identical phone number. You may still proceed if this is a new patient:
+                {t('patient.duplicateDesc')}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.6rem' }}>
@@ -264,14 +260,14 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">
-                Patient Full Name <span style={{ color: '#f43f5e' }}>*</span>
+                {t('patient.fullName')} <span style={{ color: '#f43f5e' }}>*</span>
               </label>
               <input
                 type="text"
                 name="name"
                 required
                 className="form-input"
-                placeholder="e.g. Smt. Sunita Rao"
+                placeholder={t('patient.fullNamePlaceholder')}
                 value={formData.name}
                 onChange={handleChange}
               />
@@ -280,7 +276,7 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
             <div className="grid-2" style={{ gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">
-                  Date of Birth{' '}
+                  {t('patient.dob')}{' '}
                   {calculatedAge !== null && (
                     <span
                       className="tag-badge"
@@ -290,7 +286,7 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
                         color: isMinor ? '#fbbf24' : '#34d399',
                       }}
                     >
-                      {calculatedAge} yrs old &bull; {isMinor ? 'Minor' : 'Adult'}
+                      {t('patient.age', { age: calculatedAge })} &bull; {isMinor ? t('patient.minor') : t('patient.adult')}
                     </span>
                   )}
                 </label>
@@ -304,21 +300,21 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Gender</label>
+                <label className="form-label">{t('patient.gender')}</label>
                 <select
                   name="gender"
                   className="form-select"
                   value={formData.gender}
                   onChange={handleChange}
                 >
-                  <option value="female">Female (स्त्री)</option>
-                  <option value="male">Male (पुरुष)</option>
-                  <option value="other">Other (इतर)</option>
+                  <option value="female">{t('patient.genderFemale')}</option>
+                  <option value="male">{t('patient.genderMale')}</option>
+                  <option value="other">{t('patient.genderOther')}</option>
                 </select>
               </div>
             </div>
 
-            {/* Minor Guardian Field (Dynamically Required/Highlighted if Minor) */}
+            {/* Minor Guardian Field */}
             {isMinor && (
               <div
                 className="form-group"
@@ -330,14 +326,14 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
                 }}
               >
                 <label className="form-label" style={{ color: '#fde68a' }}>
-                  Parent / Guardian Name <span style={{ color: '#f43f5e' }}>* Required for Minors</span>
+                  {t('patient.guardianName')} <span style={{ color: '#f43f5e' }}>{t('patient.guardianRequired')}</span>
                 </label>
                 <input
                   type="text"
                   name="guardianName"
                   required={isMinor}
                   className="form-input"
-                  placeholder="e.g. Suresh Patil (Father / Mother / Guardian)"
+                  placeholder={t('patient.guardianPlaceholder')}
                   value={formData.guardianName}
                   onChange={handleChange}
                 />
@@ -346,19 +342,19 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
 
             <div className="grid-2" style={{ gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Mobile Phone Number</label>
+                <label className="form-label">{t('patient.phone')}</label>
                 <input
                   type="tel"
                   name="phone"
                   className="form-input"
-                  placeholder="+91-9876543210"
+                  placeholder={t('patient.phonePlaceholder')}
                   value={formData.phone}
                   onChange={handleChange}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Preferred Communication Language</label>
+                <label className="form-label">{t('patient.preferredLanguage')}</label>
                 <select
                   name="preferredLanguage"
                   className="form-select"
@@ -373,12 +369,12 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Village / Taluka / Residential Address</label>
+              <label className="form-label">{t('patient.address')}</label>
               <textarea
                 name="address"
                 rows={2}
                 className="form-input"
-                placeholder="e.g. Pabal Village, Shirur Taluka, Pune District"
+                placeholder={t('patient.addressPlaceholder')}
                 value={formData.address}
                 onChange={handleChange}
               />
@@ -391,10 +387,10 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
               style={{ width: '100%', marginTop: '0.75rem', padding: '0.85rem' }}
             >
               {submitting ? (
-                'Issuing PHID & Generating QR Card...'
+                t('patient.submittingBtn')
               ) : (
                 <>
-                  Register Patient & Issue PHID Card <ArrowRight size={16} />
+                  {t('patient.submitBtn')} <ArrowRight size={16} />
                 </>
               )}
             </button>
@@ -407,26 +403,14 @@ export const PatientRegisterPage = ({ onNavigateToList }) => {
               Quick Demo Patient Presets
             </div>
             <div className="demo-chips">
-              <button
-                type="button"
-                className="demo-chip"
-                onClick={() => handleDemoFill('adult')}
-              >
-                👩 Adult: Sunita Rao (30yo)
+              <button type="button" className="demo-chip" onClick={() => handleDemoFill('adult')}>
+                {t('patient.demoAdult')}
               </button>
-              <button
-                type="button"
-                className="demo-chip"
-                onClick={() => handleDemoFill('minor')}
-              >
-                👦 Minor: Aarav Patil (7yo with Guardian)
+              <button type="button" className="demo-chip" onClick={() => handleDemoFill('minor')}>
+                {t('patient.demoMinor')}
               </button>
-              <button
-                type="button"
-                className="demo-chip"
-                onClick={() => handleDemoFill('duplicate')}
-              >
-                ⚠️ Test Duplicate Trigger
+              <button type="button" className="demo-chip" onClick={() => handleDemoFill('duplicate')}>
+                {t('patient.demoDuplicate')}
               </button>
             </div>
           </div>

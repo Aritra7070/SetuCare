@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import { Lock, Mail, Activity, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 
 export const LoginPage = ({ onSwitchToRegister }) => {
+  const { t } = useTranslation();
   const { login, loading, error, clearError } = useAuthStore();
   const [email, setEmail] = useState('asha.shinde@setucare.in');
   const [password, setPassword] = useState('password123');
@@ -26,8 +28,8 @@ export const LoginPage = ({ onSwitchToRegister }) => {
           <div style={{ display: 'inline-flex', padding: '0.6rem', background: 'rgba(13, 148, 136, 0.15)', borderRadius: 'var(--radius-md)', marginBottom: '0.75rem', color: '#14b8a6' }}>
             <Activity size={28} />
           </div>
-          <h2>Sign In to SetuCare</h2>
-          <p>Stepped-Care Clinical Navigation & Referral System</p>
+          <h2>{t('auth.signInTo')}</h2>
+          <p>{t('common.tagline')}</p>
         </div>
 
         {error && (
@@ -39,14 +41,14 @@ export const LoginPage = ({ onSwitchToRegister }) => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Work Email Address</label>
+            <label className="form-label">{t('auth.emailLabel')}</label>
             <div style={{ position: 'relative' }}>
               <Mail size={16} style={{ position: 'absolute', left: '0.9rem', top: '0.9rem', color: '#94a3b8' }} />
               <input
                 type="email"
                 required
                 className="form-input"
-                placeholder="name@setucare.in"
+                placeholder={t('auth.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{ paddingLeft: '2.6rem' }}
@@ -55,7 +57,7 @@ export const LoginPage = ({ onSwitchToRegister }) => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label">{t('auth.passwordLabel')}</label>
             <div style={{ position: 'relative' }}>
               <Lock size={16} style={{ position: 'absolute', left: '0.9rem', top: '0.9rem', color: '#94a3b8' }} />
               <input
@@ -77,30 +79,28 @@ export const LoginPage = ({ onSwitchToRegister }) => {
             style={{ width: '100%', marginTop: '0.5rem' }}
           >
             {loading ? (
-              'Authenticating...'
+              t('auth.signingIn')
             ) : (
-              <>
-                Sign In <ArrowRight size={16} />
-              </>
+              <>{t('auth.signIn')} <ArrowRight size={16} /></>
             )}
           </button>
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-          Need a new clinical or admin account?{' '}
+          {t('auth.needAccount')}{' '}
           <button
             type="button"
             onClick={onSwitchToRegister}
             style={{ background: 'none', color: '#22d3ee', fontWeight: '600', textDecoration: 'underline' }}
           >
-            Register Here
+            {t('auth.registerHere')}
           </button>
         </div>
 
         <div className="demo-accounts">
           <div className="demo-title">
             <Sparkles size={13} color="#14b8a6" />
-            Quick Demo Accounts (Autofill)
+            {t('auth.demoTitle')}
           </div>
           <div className="demo-chips">
             <button
@@ -108,35 +108,35 @@ export const LoginPage = ({ onSwitchToRegister }) => {
               className="demo-chip"
               onClick={() => handleDemoFill('asha.shinde@setucare.in', 'password123')}
             >
-              👩‍⚕️ ASHA (Frontline)
+              {t('auth.demoAsha')}
             </button>
             <button
               type="button"
               className="demo-chip"
               onClick={() => handleDemoFill('dr.kulkarni@setucare.in', 'password123')}
             >
-              🩺 Medical Officer (PHC)
+              {t('auth.demoMo')}
             </button>
             <button
               type="button"
               className="demo-chip"
               onClick={() => handleDemoFill('dr.deshmukh@setucare.in', 'password123')}
             >
-              🏥 Specialist (DH)
+              {t('auth.demoSpecialist')}
             </button>
             <button
               type="button"
               className="demo-chip"
               onClick={() => handleDemoFill('pm.patil@setucare.in', 'password123')}
             >
-              📊 Program Manager
+              {t('auth.demoPm')}
             </button>
             <button
               type="button"
               className="demo-chip"
               onClick={() => handleDemoFill('admin@setucare.in', 'admin123')}
             >
-              🛡️ Admin
+              {t('auth.demoAdmin')}
             </button>
           </div>
         </div>

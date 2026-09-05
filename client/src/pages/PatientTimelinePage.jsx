@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import { useAuthStore } from '../stores/authStore';
 import { useSocket } from '../hooks/useSocket';
+import { useTranslation } from 'react-i18next';
 import { EncounterCreateModal } from '../components/EncounterCreateModal';
 import { ReferralCreateModal, REFERRAL_STATUS_CONFIG } from '../components/ReferralCreateModal';
 import { TeleconsultRequestModal } from '../components/TeleconsultRequestModal';
 import { VideoRoom } from '../components/VideoRoom';
+import { EmergencyDeclareModal, EmergencyConfirmationStrip } from '../components/EmergencyDeclareModal';
 import { SYMPTOM_LABEL_MAP } from '../utils/symptomVocabulary';
 import {
   ArrowLeft,
@@ -26,6 +28,7 @@ import {
   ArrowRight,
   Eye,
   Video,
+  Siren,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -560,11 +563,16 @@ function EncounterCard({ enc, patient, onTriageRun, onReferred, onStatusUpdated,
 export const PatientTimelinePage = ({ phid, onBack }) => {
   const { user } = useAuthStore();
   const socket   = useSocket();
+  const { t }    = useTranslation();
 
   const [data,               setData]               = useState(null);
   const [loading,            setLoading]            = useState(true);
   const [error,              setError]              = useState(null);
   const [encounterModalOpen, setEncounterModalOpen] = useState(false);
+  // Step 19 — emergency declaration
+  const [emergencyModalOpen,    setEmergencyModalOpen]    = useState(false);
+  const [emergencyConfirmation, setEmergencyConfirmation] = useState(null);
+  // { routedTo } — shown as inline strip after successful declaration
   // Live notification toasts — { id, message, type }
   const [notifications,      setNotifications]      = useState([]);
 
@@ -816,6 +824,19 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
               {patient.guardianName && (
                 <span style={{ fontSize: '0.82rem', color: '#f59e0b' }}>Guardian: {patient.guardianName}</span>
               )}
+              {/* Step 18 — patient preferred language badge (PRD §7) */}
+              {patient.preferredLanguage && (
+                <span style={{
+                  fontSize: '0.72rem', fontWeight: '700',
+                  padding: '0.1rem 0.45rem', borderRadius: '9999px',
+                  background: 'rgba(139,92,246,0.15)', color: '#c4b5fd',
+                  border: '1px solid rgba(139,92,246,0.3)',
+                }}>
+                  {t('patient.prefers', {
+                    lang: t(`enums.languages.${patient.preferredLanguage}`, { defaultValue: patient.preferredLanguage.toUpperCase() })
+                  })}
+                </span>
+              )}
             </div>
 
             {patient.registeredAtFacility && (
@@ -891,8 +912,35 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
           <button onClick={() => setEncounterModalOpen(true)} className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>
             <Stethoscope size={14} /> + Record Visit
           </button>
+          {/* Step 19 — always-visible emergency fast path */}
+          <button
+            onClick={() => setEmergencyModalOpen(true)}
+            className="btn btn-sm"
+            style={{
+              flexShrink: 0,
+              background: 'rgba(244,63,94,0.15)',
+              border: '1px solid rgba(244,63,94,0.45)',
+              color: '#f87171',
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              fontWeight: '700',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(244,63,94,0.28)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(244,63,94,0.15)'; }}
+            title="Declare Emergency — bypasses triage, routes to district hospital immediately"
+          >
+            <Siren size={14} /> Emergency
+          </button>
         </div>
       </div>
+
+      {/* Step 19 — emergency confirmation strip (shown after successful declaration) */}
+      {emergencyConfirmation && (
+        <EmergencyConfirmationStrip
+          routedTo={emergencyConfirmation.routedTo}
+          onDismiss={() => setEmergencyConfirmation(null)}
+        />
+      )}
 
       {/* ══ Summary strip ══ */}
       <div className="card" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 0, padding: 0, overflow: 'hidden', marginBottom: '1.25rem', border: '1px solid var(--border-subtle)' }}>
@@ -1034,6 +1082,20 @@ export const PatientTimelinePage = ({ phid, onBack }) => {
           patient={patient}
           onClose={() => setEncounterModalOpen(false)}
           onSuccess={handleEncounterCreated}
+        />
+      )}
+
+      {/* Step 19 — emergency declaration modal */}
+      {emergencyModalOpen && (
+        <EmergencyDeclareModal
+          patient={patient}
+          onClose={() => setEmergencyModalOpen(false)}
+          onSuccess={(data) => {
+            setEmergencyModalOpen(false);
+            setEmergencyConfirmation({ routedTo: data.routedTo });
+            // Re-fetch so the new emergency encounter appears in the timeline
+            fetchTimeline();
+          }}
         />
       )}
 

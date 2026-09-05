@@ -435,19 +435,36 @@ const getInbox = async (req, res) => {
       .filter(r => {
         if (!riskFilter) return true;
         const rl = r.sourceEncounter?.triageResult?.riskLevel || 'none';
+        // Step 19: emergency referrals declared without triage have no sourceEncounter
+        // triageResult but isEmergency=true — always pass emergency filter for them
+        if (riskFilter === 'emergency' && r.isEmergency) return true;
         return rl === riskFilter;
       })
       .map(r => {
-        const riskLevel = r.sourceEncounter?.triageResult?.riskLevel || null;
+        const riskLevel = r.isEmergency
+          ? 'emergency'
+          : (r.sourceEncounter?.triageResult?.riskLevel || null);
         const rlKey     = riskLevel || 'none';
         const threshold = OVERDUE_MS[rlKey] ?? OVERDUE_MS.none;
         const ageMs     = now - new Date(r.createdAt).getTime();
         const isOverdue = r.status === 'created' && ageMs > threshold;
         const overdueByMs = isOverdue ? ageMs - threshold : 0;
 
-        return { ...r, riskLevel, isOverdue, overdueByMs, ageMs };
+        return {
+          ...r,
+          riskLevel,
+          isOverdue,
+          overdueByMs,
+          ageMs,
+          isEmergency: r.isEmergency || false,   // Step 19: always present on response
+          escalatedAt: r.escalatedAt || null,
+        };
       })
       .sort((a, b) => {
+        // 0. Step 19: pinned emergency referrals always come first regardless of status
+        const emergencyA = a.isEmergency ? 0 : 1;
+        const emergencyB = b.isEmergency ? 0 : 1;
+        if (emergencyA !== emergencyB) return emergencyA - emergencyB;
         // 1. Status priority
         const sp = (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9);
         if (sp !== 0) return sp;

@@ -250,6 +250,40 @@ const testFacilityScope = async (req, res) => {
   });
 };
 
+/**
+ * @desc    Update the logged-in user's preferred language
+ * @route   PATCH /api/auth/me/preferred-language
+ * @access  Private (any authenticated user)
+ */
+const updatePreferredLanguage = async (req, res) => {
+  try {
+    const { preferredLanguage } = req.body;
+    const VALID = ['en', 'hi', 'mr'];
+    if (!preferredLanguage || !VALID.includes(preferredLanguage)) {
+      return res.status(400).json({
+        success: false,
+        message: `preferredLanguage must be one of: ${VALID.join(', ')}`,
+      });
+    }
+
+    const User = require('../models/User');
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { preferredLanguage },
+      { new: true }
+    ).populate('facility', 'name tier shortCode district state');
+
+    res.status(200).json({
+      success: true,
+      message: `Language updated to '${preferredLanguage}'`,
+      user,
+    });
+  } catch (error) {
+    console.error('[Auth] updatePreferredLanguage error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update language.' });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -257,4 +291,5 @@ module.exports = {
   getMe,
   testRoleGuard,
   testFacilityScope,
+  updatePreferredLanguage,
 };
